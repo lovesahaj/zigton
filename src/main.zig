@@ -1,14 +1,11 @@
+// --- context.zig
 const std = @import("std");
 const cuda = @import("cuda");
 
-const ptx = @embedFile("vector_add.ptx");
+const zt = @import("zigton");
 
-fn check(result: cuda.CUresult) !void {
-    if (result != cuda.CUDA_SUCCESS) {
-        std.debug.print("CUDA Error encountered: {}\n", .{result});
-        return error.CudaError;
-    }
-}
+// --- main.zig
+const ptx = @embedFile("vector_add.ptx");
 
 // init: std.process.Init
 pub fn main() !void {
@@ -26,43 +23,35 @@ pub fn main() !void {
         z[i] = 0.0;
     }
 
-    // Initialize Driver API
-    try check(cuda.cuInit(0));
-
-    var dev: cuda.CUdevice = undefined;
-    try check(cuda.cuDeviceGet(&dev, 0));
-
-    // Initialize Execution context
-    var ctx: cuda.CUcontext = undefined;
-    try check(cuda.cuCtxCreate_v4(&ctx, null, 0, dev));
-    defer _ = cuda.cuCtxDestroy_v2(ctx);
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
 
     // Load GPU Module -- the ptx file
     var module: cuda.CUmodule = undefined;
-    try check(cuda.cuModuleLoadData(&module, ptx.ptr));
+    try zt.check(cuda.cuModuleLoadData(&module, ptx.ptr));
     defer _ = cuda.cuModuleUnload(module);
 
     // get the vector add kernel
     var func: cuda.CUfunction = undefined;
-    try check(cuda.cuModuleGetFunction(&func, module, "vector_add"));
+    try zt.check(cuda.cuModuleGetFunction(&func, module, "vector_add"));
 
     // Allocate memory block on the GPU VRAM
     var dx: cuda.CUdeviceptr = undefined;
     var dy: cuda.CUdeviceptr = undefined;
     var dz: cuda.CUdeviceptr = undefined;
 
-    try check(cuda.cuMemAlloc_v2(&dx, bytes));
+    try zt.check(cuda.cuMemAlloc_v2(&dx, bytes));
     defer _ = cuda.cuMemFree_v2(dx);
 
-    try check(cuda.cuMemAlloc_v2(&dy, bytes));
+    try zt.check(cuda.cuMemAlloc_v2(&dy, bytes));
     defer _ = cuda.cuMemFree_v2(dy);
 
-    try check(cuda.cuMemAlloc_v2(&dz, bytes));
+    try zt.check(cuda.cuMemAlloc_v2(&dz, bytes));
     defer _ = cuda.cuMemFree_v2(dz);
 
     // uploading the array data to the allocated device chunks
-    try check(cuda.cuMemcpyHtoD_v2(dx, &x, bytes));
-    try check(cuda.cuMemcpyHtoD_v2(dy, &y, bytes));
+    try zt.check(cuda.cuMemcpyHtoD_v2(dx, &x, bytes));
+    try zt.check(cuda.cuMemcpyHtoD_v2(dy, &y, bytes));
 
     // Marashalling arguments matching the expected pointer structures
     var arg_x = dx;
@@ -80,20 +69,16 @@ pub fn main() !void {
     const block_x: c_uint = 256;
     const grid_x: c_uint = (n + block_x - 1) / block_x;
 
-    try check(cuda.cuLaunchKernel(
-        func,
-        grid_x, 1, 1, // Grid Dimensions
+    try zt.check(cuda.cuLaunchKernel(func, grid_x, 1, 1, // Grid Dimensions
         block_x, 1, 1, // Block Dimensions
         0, null, // Shared memory, Stream context
-        @ptrCast(&args),
-        null
-    ));
+        @ptrCast(&args), null));
 
     // Await complete task cluster evalution
-    try check(cuda.cuCtxSynchronize());
+    try ctx.sync();
 
     // Pull results directly back into local memory array
-    try check(cuda.cuMemcpyDtoH_v2(&z, dz, bytes));
+    try zt.check(cuda.cuMemcpyDtoH_v2(&z, dz, bytes));
 
     // validate calculations match perfectly
     for (0..n) |i| {
