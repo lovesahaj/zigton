@@ -1,9 +1,6 @@
 const std = @import("std");
 const cuda = @import("cuda");
 
-pub extern "cuda" fn cuInit(flags: c_uint) cuda.CUresult;
-pub extern "cuda" fn cuDeviceGet(device: *cuda.CUdevice, ordinal: c_int) cuda.CUresult;
-
 const ptx = @embedFile("vector_add.ptx");
 
 fn check(result: cuda.CUresult) !void {
@@ -30,10 +27,10 @@ pub fn main() !void {
     }
 
     // Initialize Driver API
-    try check(cuInit(0));
+    try check(cuda.cuInit(0));
 
     var dev: cuda.CUdevice = undefined;
-    try check(cuDeviceGet(&dev, 0));
+    try check(cuda.cuDeviceGet(&dev, 0));
 
     // Initialize Execution context
     var ctx: cuda.CUcontext = undefined;
