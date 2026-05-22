@@ -21,6 +21,8 @@ pub fn build(b: *std.Build) void {
     // target and optimize options) will be listed when running `zig build --help`
     // in this directory.
 
+    const cuda_prefix = b.option([]const u8, "cuda-prefix", "CUDA install prefix") orelse "/afs/inf.ed.ac.uk/user/s28/s2881386/.local/cuda-13.0";
+
     // Tell the build graph to parse and translate your target C header
     const c_translation = b.addTranslateC(.{
         .root_source_file = b.path("src/cuda_includes.h"), // A local header wrapper
@@ -29,7 +31,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
 
-    c_translation.addIncludePath(.{ .cwd_relative = "/afs/inf.ed.ac.uk/user/s28/s2881386/.local/cuda-13.0/include" });
+    c_translation.addIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{cuda_prefix}) });
 
     // 2. Wrap the output of that translation step into a usable module
     const cuda_module = b.createModule(.{
@@ -101,11 +103,8 @@ pub fn build(b: *std.Build) void {
 
     // add the cuda library to the project
     exe.root_module.linkSystemLibrary("cuda", .{});
-
-    exe.root_module.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
-    exe.root_module.addLibraryPath(.{ .cwd_relative = "/usr/lib64" });
-
-    // exe.root_module.addLibraryPath(.{ .cwd_relative = "/afs/inf.ed.ac.uk/user/s28/s2881386/.local/cuda-13.0/lib64" });
+    exe.root_module.link_libc = true;
+    exe.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
