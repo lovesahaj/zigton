@@ -2,16 +2,16 @@
 const std = @import("std");
 const cuda = @import("cuda");
 
-pub fn check(result: cuda.CUresult) !void {
+pub const Error = error{
+    CudaError,
+};
+
+pub fn check(result: cuda.CUresult) Error!void {
     if (result != cuda.CUDA_SUCCESS) {
         std.debug.print("CUDA Error encountered: {}\n", .{result});
         return error.CudaError;
     }
 }
-
-pub const Error = error{
-    CudaError,
-};
 
 pub const Options = struct {
     device_index: c_int = 0,

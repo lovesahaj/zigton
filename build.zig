@@ -21,7 +21,9 @@ pub fn build(b: *std.Build) void {
     // target and optimize options) will be listed when running `zig build --help`
     // in this directory.
 
+    // right now i have hard coded this string 
     const cuda_prefix = b.option([]const u8, "cuda-prefix", "CUDA install prefix") orelse "/afs/inf.ed.ac.uk/user/s28/s2881386/.local/cuda-13.0";
+    // better would be `zig build run -Dcuda-prefix=path_to_cuda 
 
     // Tell the build graph to parse and translate your target C header
     const c_translation = b.addTranslateC(.{

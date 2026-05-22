@@ -1,4 +1,3 @@
-// --- context.zig
 const std = @import("std");
 const cuda = @import("cuda");
 
@@ -69,7 +68,8 @@ pub fn main() !void {
     const block_x: c_uint = 256;
     const grid_x: c_uint = (n + block_x - 1) / block_x;
 
-    try zt.check(cuda.cuLaunchKernel(func, grid_x, 1, 1, // Grid Dimensions
+    try zt.check(cuda.cuLaunchKernel(func, // kernel we are calling
+        grid_x, 1, 1, // Grid Dimensions
         block_x, 1, 1, // Block Dimensions
         0, null, // Shared memory, Stream context
         @ptrCast(&args), null));
