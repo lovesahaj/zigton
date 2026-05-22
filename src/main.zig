@@ -1,71 +1,111 @@
 const std = @import("std");
-const Io = std.Io;
+const cuda = @import("cuda");
 
-const zigton = @import("zigton");
+pub extern "cuda" fn cuInit(flags: c_uint) cuda.CUresult;
+pub extern "cuda" fn cuDeviceGet(device: *cuda.CUdevice, ordinal: c_int) cuda.CUresult;
 
-pub fn main(init: std.process.Init) !void {
-    // Prints to stderr, unbuffered, ignoring potential errors.
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+const ptx = @embedFile("vector_add.ptx");
 
-    // This is appropriate for anything that lives as long as the process.
-    const arena: std.mem.Allocator = init.arena.allocator();
+fn check(result: cuda.CUresult) !void {
+    if (result != cuda.CUDA_SUCCESS) {
+        std.debug.print("CUDA Error encountered: {}\n", .{result});
+        return error.CudaError;
+    }
+}
 
-    // Accessing command line arguments:
-    const args = try init.minimal.args.toSlice(arena);
-    for (args) |arg| {
-        std.log.info("arg: {s}", .{arg});
+// init: std.process.Init
+pub fn main() !void {
+    const n: u32 = 1024;
+    const bytes = n * @sizeOf(f32);
+
+    // Using large stack allocation or arrays
+    var x: [n]f32 = undefined;
+    var y: [n]f32 = undefined;
+    var z: [n]f32 = undefined;
+
+    for (0..n) |i| {
+        x[i] = @floatFromInt(i);
+        y[i] = @floatFromInt(i * 2);
+        z[i] = 0.0;
     }
 
-    // In order to do I/O operations need an `Io` instance.
-    const io = init.io;
+    // Initialize Driver API
+    try check(cuInit(0));
 
-    // Stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_file_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
-    const stdout_writer = &stdout_file_writer.interface;
+    var dev: cuda.CUdevice = undefined;
+    try check(cuDeviceGet(&dev, 0));
 
-    try zigton.printAnotherMessage(stdout_writer);
+    // Initialize Execution context
+    var ctx: cuda.CUcontext = undefined;
+    try check(cuda.cuCtxCreate_v4(&ctx, null, 0, dev));
+    defer _ = cuda.cuCtxDestroy_v2(ctx);
 
-    try stdout_writer.flush(); // Don't forget to flush!
-}
+    // Load GPU Module -- the ptx file
+    var module: cuda.CUmodule = undefined;
+    try check(cuda.cuModuleLoadData(&module, ptx.ptr));
+    defer _ = cuda.cuModuleUnload(module);
 
-test "simple test" {
-    const gpa = std.testing.allocator;
-    var list: std.ArrayList(i32) = .empty;
-    defer list.deinit(gpa); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(gpa, 42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
+    // get the vector add kernel
+    var func: cuda.CUfunction = undefined;
+    try check(cuda.cuModuleGetFunction(&func, module, "vector_add"));
 
-test "fuzz example" {
-    try std.testing.fuzz({}, testOne, .{});
-}
+    // Allocate memory block on the GPU VRAM
+    var dx: cuda.CUdeviceptr = undefined;
+    var dy: cuda.CUdeviceptr = undefined;
+    var dz: cuda.CUdeviceptr = undefined;
 
-fn testOne(context: void, smith: *std.testing.Smith) !void {
-    _ = context;
-    // Try passing `--fuzz` to `zig build test` and see if it manages to fail this test case!
+    try check(cuda.cuMemAlloc_v2(&dx, bytes));
+    defer _ = cuda.cuMemFree_v2(dx);
 
-    const gpa = std.testing.allocator;
-    var list: std.ArrayList(u8) = .empty;
-    defer list.deinit(gpa);
-    while (!smith.eos()) switch (smith.value(enum { add_data, dup_data })) {
-        .add_data => {
-            const slice = try list.addManyAsSlice(gpa, smith.value(u4));
-            smith.bytes(slice);
-        },
-        .dup_data => {
-            if (list.items.len == 0) continue;
-            if (list.items.len > std.math.maxInt(u32)) return error.SkipZigTest;
-            const len = smith.valueRangeAtMost(u32, 1, @min(32, list.items.len));
-            const off = smith.valueRangeAtMost(u32, 0, @intCast(list.items.len - len));
-            try list.appendSlice(gpa, list.items[off..][0..len]);
-            try std.testing.expectEqualSlices(
-                u8,
-                list.items[off..][0..len],
-                list.items[list.items.len - len ..],
-            );
-        },
+    try check(cuda.cuMemAlloc_v2(&dy, bytes));
+    defer _ = cuda.cuMemFree_v2(dy);
+
+    try check(cuda.cuMemAlloc_v2(&dz, bytes));
+    defer _ = cuda.cuMemFree_v2(dz);
+
+    // uploading the array data to the allocated device chunks
+    try check(cuda.cuMemcpyHtoD_v2(dx, &x, bytes));
+    try check(cuda.cuMemcpyHtoD_v2(dy, &y, bytes));
+
+    // Marashalling arguments matching the expected pointer structures
+    var arg_x = dx;
+    var arg_y = dy;
+    var arg_z = dz;
+    var arg_n = n;
+
+    var args = [_]?*anyopaque{
+        &arg_x,
+        &arg_y,
+        &arg_z,
+        &arg_n,
     };
+
+    const block_x: c_uint = 256;
+    const grid_x: c_uint = (n + block_x - 1) / block_x;
+
+    try check(cuda.cuLaunchKernel(
+        func,
+        grid_x, 1, 1, // Grid Dimensions
+        block_x, 1, 1, // Block Dimensions
+        0, null, // Shared memory, Stream context
+        @ptrCast(&args),
+        null
+    ));
+
+    // Await complete task cluster evalution
+    try check(cuda.cuCtxSynchronize());
+
+    // Pull results directly back into local memory array
+    try check(cuda.cuMemcpyDtoH_v2(&z, dz, bytes));
+
+    // validate calculations match perfectly
+    for (0..n) |i| {
+        const expected = x[i] + y[i];
+        if (z[i] != expected) {
+            std.debug.print("bad at {}: got {}, expected {}\n", .{ i, z[i], expected });
+            return error.BadResult;
+        }
+    }
+
+    std.debug.print("vector_add OK\n", .{});
 }

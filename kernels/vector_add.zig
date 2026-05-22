@@ -1,6 +1,6 @@
 const builtin = @import("builtin");
 
-pub export fn vector_add(
+pub fn vector_add(
     x: [*]const f32,
     y: [*]const f32,
     z: [*]f32,
@@ -36,4 +36,6 @@ comptime {
     if (builtin.cpu.arch != .nvptx64) {
         @compileError("vector_add.zig must be compiled for nvptx64-cuda-none");
     }
+
+    @export(&vector_add, .{ .name = "vector_add", .linkage = .strong });
 }

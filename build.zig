@@ -21,6 +21,21 @@ pub fn build(b: *std.Build) void {
     // target and optimize options) will be listed when running `zig build --help`
     // in this directory.
 
+    // Tell the build graph to parse and translate your target C header
+    const c_translation = b.addTranslateC(.{
+        .root_source_file = b.path("src/cuda_includes.h"), // A local header wrapper
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+
+    c_translation.addIncludePath(.{ .cwd_relative = "/afs/inf.ed.ac.uk/user/s28/s2881386/.local/cuda-13.0/include" });
+
+    // 2. Wrap the output of that translation step into a usable module
+    const cuda_module = b.createModule(.{
+        .root_source_file = c_translation.getOutput(),
+    });
+
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
     // Zig modules are the preferred way of making Zig code available to consumers.
@@ -79,9 +94,18 @@ pub fn build(b: *std.Build) void {
                 // can be extremely useful in case of collisions (which can happen
                 // importing modules from different packages).
                 .{ .name = "zigton", .module = mod },
+                .{ .name = "cuda", .module = cuda_module },
             },
         }),
     });
+
+    // add the cuda library to the project
+    exe.root_module.linkSystemLibrary("cuda", .{});
+
+    exe.root_module.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
+    exe.root_module.addLibraryPath(.{ .cwd_relative = "/usr/lib64" });
+
+    // exe.root_module.addLibraryPath(.{ .cwd_relative = "/afs/inf.ed.ac.uk/user/s28/s2881386/.local/cuda-13.0/lib64" });
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
