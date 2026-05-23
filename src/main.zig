@@ -28,7 +28,7 @@ pub fn main() !void {
     defer module.deinit();
 
     // get the vector add kernel
-    const func: cuda.CUfunction = try module.getFunction("vector_add");
+    const vector_add: zt.Kernel = try module.kernel("vector_add");
 
     // Allocate memory block on the GPU VRAM
     var dx = try zt.DeviceBuffer(f32).alloc(n);
@@ -51,11 +51,10 @@ pub fn main() !void {
         n,
     );
 
-
     const block_x: c_uint = 256;
     const grid_x: c_uint = (n + block_x - 1) / block_x;
 
-    try zt.launch(func, .{
+    try vector_add.launch(.{
         .grid = .{ .x = grid_x },
         .block = .{ .x = block_x },
         .args = args.ptr(),

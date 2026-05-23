@@ -7,7 +7,6 @@ pub const Dim3 = struct {
     z: c_uint = 1,
 };
 
-
 pub const LaunchConfig = struct {
     grid: Dim3,
     block: Dim3,
@@ -16,7 +15,18 @@ pub const LaunchConfig = struct {
     args: [*]?*anyopaque,
 };
 
-
 pub fn launch(func: cuda.CUfunction, config: LaunchConfig) !void {
-    try context.check(cuda.cuLaunchKernel(func, config.grid.x, config.grid.y, config.grid.z, config.block.x, config.block.y, config.block.z, config.shared_bytes, config.stream, config.args, null,));
+    try context.check(cuda.cuLaunchKernel(
+        func,
+        config.grid.x,
+        config.grid.y,
+        config.grid.z,
+        config.block.x,
+        config.block.y,
+        config.block.z,
+        config.shared_bytes,
+        config.stream,
+        config.args,
+        null,
+    ));
 }

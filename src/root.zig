@@ -12,3 +12,5 @@ pub const launch = @import("launch.zig").launch;
 
 pub const KernelArgs4 = @import("args.zig").KernelArgs4;
 pub const kernelArgs4 = @import("args.zig").kernelArgs4;
+
+pub const Kernel = @import("kernel.zig").Kernel;
