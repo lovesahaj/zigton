@@ -36,7 +36,7 @@ pub fn main() !void {
 
     var dy = try zt.DeviceBuffer(f32).alloc(n);
     defer dy.deinit();
-    
+
     var dz = try zt.DeviceBuffer(f32).alloc(n);
     defer dz.deinit();
 
@@ -44,26 +44,22 @@ pub fn main() !void {
     try dy.copyFromHost(y[0..]);
 
     // Marashalling arguments matching the expected pointer structures
-    var arg_x = dx.ptr;
-    var arg_y = dy.ptr;
-    var arg_z = dz.ptr;
-    var arg_n = n;
+    var args = zt.kernelArgs4(
+        dx.ptr,
+        dy.ptr,
+        dz.ptr,
+        n,
+    );
 
-    var args = [_]?*anyopaque{
-        &arg_x,
-        &arg_y,
-        &arg_z,
-        &arg_n,
-    };
 
     const block_x: c_uint = 256;
     const grid_x: c_uint = (n + block_x - 1) / block_x;
 
     try zt.launch(func, .{
-    .grid = .{ .x= grid_x},
-    .block = .{.x = block_x},
-    .args = @ptrCast(&args),
-});
+        .grid = .{ .x = grid_x },
+        .block = .{ .x = block_x },
+        .args = args.ptr(),
+    });
 
     // Await complete task cluster evalution
     try ctx.sync();
