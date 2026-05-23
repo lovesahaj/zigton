@@ -1,6 +1,5 @@
 const std = @import("std");
 const cuda = @import("cuda");
-
 const zt = @import("zigton");
 
 // --- main.zig
@@ -9,7 +8,6 @@ const ptx = @embedFile("vector_add.ptx");
 // init: std.process.Init
 pub fn main() !void {
     const n: u32 = 1024;
-    const bytes = n * @sizeOf(f32);
 
     // Using large stack allocation or arrays
     var x: [n]f32 = undefined;
@@ -26,36 +24,29 @@ pub fn main() !void {
     defer ctx.deinit();
 
     // Load GPU Module -- the ptx file
-    var module: cuda.CUmodule = undefined;
-    try zt.check(cuda.cuModuleLoadData(&module, ptx.ptr));
-    defer _ = cuda.cuModuleUnload(module);
+    var module = try zt.Module.loadData(ptx);
+    defer module.deinit();
 
     // get the vector add kernel
-    var func: cuda.CUfunction = undefined;
-    try zt.check(cuda.cuModuleGetFunction(&func, module, "vector_add"));
+    const func: cuda.CUfunction = try module.getFunction("vector_add");
 
     // Allocate memory block on the GPU VRAM
-    var dx: cuda.CUdeviceptr = undefined;
-    var dy: cuda.CUdeviceptr = undefined;
-    var dz: cuda.CUdeviceptr = undefined;
+    var dx = try zt.DeviceBuffer(f32).alloc(n);
+    defer dx.deinit();
 
-    try zt.check(cuda.cuMemAlloc_v2(&dx, bytes));
-    defer _ = cuda.cuMemFree_v2(dx);
+    var dy = try zt.DeviceBuffer(f32).alloc(n);
+    defer dy.deinit();
+    
+    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    defer dz.deinit();
 
-    try zt.check(cuda.cuMemAlloc_v2(&dy, bytes));
-    defer _ = cuda.cuMemFree_v2(dy);
-
-    try zt.check(cuda.cuMemAlloc_v2(&dz, bytes));
-    defer _ = cuda.cuMemFree_v2(dz);
-
-    // uploading the array data to the allocated device chunks
-    try zt.check(cuda.cuMemcpyHtoD_v2(dx, &x, bytes));
-    try zt.check(cuda.cuMemcpyHtoD_v2(dy, &y, bytes));
+    try dx.copyFromHost(x[0..]);
+    try dy.copyFromHost(y[0..]);
 
     // Marashalling arguments matching the expected pointer structures
-    var arg_x = dx;
-    var arg_y = dy;
-    var arg_z = dz;
+    var arg_x = dx.ptr;
+    var arg_y = dy.ptr;
+    var arg_z = dz.ptr;
     var arg_n = n;
 
     var args = [_]?*anyopaque{
@@ -68,17 +59,17 @@ pub fn main() !void {
     const block_x: c_uint = 256;
     const grid_x: c_uint = (n + block_x - 1) / block_x;
 
-    try zt.check(cuda.cuLaunchKernel(func, // kernel we are calling
-        grid_x, 1, 1, // Grid Dimensions
-        block_x, 1, 1, // Block Dimensions
-        0, null, // Shared memory, Stream context
-        @ptrCast(&args), null));
+    try zt.launch(func, .{
+    .grid = .{ .x= grid_x},
+    .block = .{.x = block_x},
+    .args = @ptrCast(&args),
+});
 
     // Await complete task cluster evalution
     try ctx.sync();
 
     // Pull results directly back into local memory array
-    try zt.check(cuda.cuMemcpyDtoH_v2(&z, dz, bytes));
+    try dz.copyToHost(z[0..]);
 
     // validate calculations match perfectly
     for (0..n) |i| {

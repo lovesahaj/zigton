@@ -1,2 +1,7 @@
 pub const Context = @import("context.zig").Context;
 pub const check = @import("context.zig").check;
+pub const DeviceBuffer = @import("buffer.zig").DeviceBuffer;
+pub const Module = @import("module.zig").Module;
+pub const Dim3 = @import("launch.zig").Dim3;
+pub const LunchConfig = @import("launch.zig").LaunchConfig;
+pub const launch = @import("launch.zig").launch;

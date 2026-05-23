@@ -25,10 +25,18 @@ pub const Context = struct {
         try check(cuda.cuInit(0));
 
         var device: cuda.CUdevice = undefined;
-        try check(cuda.cuDeviceGet(&device, opts.device_index));
+        try check(cuda.cuDeviceGet(
+            &device,
+            opts.device_index,
+        ));
 
         var handle: cuda.CUcontext = undefined;
-        try check(cuda.cuCtxCreate_v4(&handle, null, 0, device));
+        try check(cuda.cuCtxCreate_v4(
+            &handle,
+            null,
+            0,
+            device,
+        ));
 
         return .{
             .device = device,
