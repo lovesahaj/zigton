@@ -43,13 +43,8 @@ pub fn main() !void {
     try dx.copyFromHost(x[0..]);
     try dy.copyFromHost(y[0..]);
 
-    // Marashalling arguments matching the expected pointer structures
-    var args = zt.kernelArgs4(
-        dx.ptr,
-        dy.ptr,
-        dz.ptr,
-        n,
-    );
+    var args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
+    args.bind();
 
     const block_x: c_uint = 256;
     const grid_x: c_uint = (n + block_x - 1) / block_x;

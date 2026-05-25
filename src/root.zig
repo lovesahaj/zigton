@@ -10,7 +10,7 @@ pub const Dim3 = @import("launch.zig").Dim3;
 pub const LunchConfig = @import("launch.zig").LaunchConfig;
 pub const launch = @import("launch.zig").launch;
 
-pub const KernelArgs4 = @import("args.zig").KernelArgs4;
-pub const kernelArgs4 = @import("args.zig").kernelArgs4;
+pub const KernelArgs = @import("args.zig").KernelArgs;
+pub const kernelArgs = @import("args.zig").kernelArgs;
 
 pub const Kernel = @import("kernel.zig").Kernel;
