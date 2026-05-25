@@ -3,7 +3,7 @@ const cuda = @import("cuda");
 const zt = @import("zigton");
 
 // --- main.zig
-const ptx = @embedFile("vector_add.ptx");
+const ptx = @embedFile("gpu_ptx");
 
 // init: std.process.Init
 pub fn main() !void {

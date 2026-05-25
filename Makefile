@@ -1,13 +1,5 @@
-run_add_kernel:
-	zig build-obj kernels/vector_add.zig \
-    -target nvptx64-cuda-none \
-    -mcpu sm_80 \
-    -ofmt=ptx
+build_ptx:
+	zig build ptx -Dllc-path=../.local/llvm22/bin/llc -Dgpu-arch=sm_89
 
-just_assembly:
-	zig build-obj kernels/vector_add.zig \
-		-target nvptx64-cuda-none \
-		-mcpu sm_89 \
-		-fentry=vector_add \
-		-fno-emit-bin \
-		-femit-asm=zig-out/vector_add.ptx
+run_kernel:
+	zig build run -Dllc-path=../.local/llvm22/bin/llc -Dcuda-prefix=${HOME}/.local/cuda-13.0
