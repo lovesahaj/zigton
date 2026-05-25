@@ -2,14 +2,11 @@ const std = @import("std");
 const cuda = @import("cuda");
 const zt = @import("zigton");
 
-// --- main.zig
 const ptx = @embedFile("gpu_ptx");
+const n: u32 = 1024;
+const block_x: c_uint = 256;
 
-// init: std.process.Init
-pub fn main() !void {
-    const n: u32 = 1024;
-
-    // Using large stack allocation or arrays
+test "vector_add kernel" {
     var x: [n]f32 = undefined;
     var y: [n]f32 = undefined;
     var z: [n]f32 = undefined;
@@ -23,14 +20,11 @@ pub fn main() !void {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    // Load GPU Module -- the ptx file
     var module = try zt.Module.loadData(ptx);
     defer module.deinit();
 
-    // get the vector add kernel
     const vector_add: zt.Kernel = try module.kernel("vector_add");
 
-    // Allocate memory block on the GPU VRAM
     var dx = try zt.DeviceBuffer(f32).alloc(n);
     defer dx.deinit();
 
@@ -44,8 +38,6 @@ pub fn main() !void {
     try dy.copyFromHost(y[0..]);
 
     var args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
-
-    const block_x: c_uint = 256;
     const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
 
     try vector_add.launch(.{
@@ -54,30 +46,37 @@ pub fn main() !void {
         .args = args.ptr(),
     });
 
-    // Await complete task cluster evalution
     try ctx.sync();
-
-    // Pull results directly back into local memory array
     try dz.copyToHost(z[0..]);
 
-    // validate calculations match perfectly
     for (0..n) |i| {
         const expected = x[i] + y[i];
-        if (z[i] != expected) {
-            std.debug.print("bad at {}: got {}, expected {}\n", .{ i, z[i], expected });
-            return error.BadResult;
-        }
+        try std.testing.expectEqual(expected, z[i]);
     }
+}
 
-    std.debug.print("vector_add OK\n", .{});
+test "fill kernel" {
+    var z: [n]f32 = undefined;
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(ptx);
+    defer module.deinit();
 
     const fill: zt.Kernel = try module.kernel("fill");
+
+    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    defer dz.deinit();
+
     const fill_value: f32 = 1.0;
     var args_fill = zt.kernelArgs(.{
         dz.ptr,
         fill_value,
         n,
     });
+
+    const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
 
     try fill.launch(.{
         .grid = .{ .x = grid_x },
@@ -89,23 +88,44 @@ pub fn main() !void {
     try dz.copyToHost(z[0..]);
 
     for (0..n) |i| {
-        if (z[i] != fill_value) {
-            std.debug.print("bad at {}: got {}, expected {}\n", .{ i, z[i], fill_value });
-            return error.BadResult;
-        }
+        try std.testing.expectEqual(fill_value, z[i]);
+    }
+}
+
+test "add_scalar kernel" {
+    var x: [n]f32 = undefined;
+    var z: [n]f32 = undefined;
+
+    for (0..n) |i| {
+        x[i] = @floatFromInt(i);
+        z[i] = 0.0;
     }
 
-    std.debug.print("fill OK\n", .{});
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(ptx);
+    defer module.deinit();
 
     const add_scalar: zt.Kernel = try module.kernel("add_scalar");
-    const scalar: f32 = 3.0;
 
+    var dx = try zt.DeviceBuffer(f32).alloc(n);
+    defer dx.deinit();
+
+    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    defer dz.deinit();
+
+    try dx.copyFromHost(x[0..]);
+
+    const scalar: f32 = 3.0;
     var scalar_add_args = zt.kernelArgs(.{
         dx.ptr,
         dz.ptr,
         scalar,
         n,
     });
+
+    const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
 
     try add_scalar.launch(.{
         .grid = .{ .x = grid_x },
@@ -117,11 +137,7 @@ pub fn main() !void {
     try dz.copyToHost(z[0..]);
 
     for (0..n) |i| {
-        if (z[i] != x[i] + scalar) {
-            std.debug.print("bad at {}: got {}, expected {}\n", .{ i, z[i], fill_value });
-            return error.BadResult;
-        }
+        const expected = x[i] + scalar;
+        try std.testing.expectEqual(expected, z[i]);
     }
-
-    std.debug.print("add_scalar OK\n", .{});
 }
