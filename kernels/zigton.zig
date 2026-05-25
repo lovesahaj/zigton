@@ -1,3 +1,17 @@
+pub const AddressSpace = enum {
+    reg,
+    shared,
+    global,
+};
+
+pub fn GlobalPtr(comptime T: type) type {
+    return [*]addrspace(.global) T;
+}
+
+pub fn ConstGlobalPtr(comptime T: type) type {
+    return [*]addrspace(.global) const T;
+}
+
 // @workGroupId -> ctadi.x (block id)
 pub fn blockId(comptime dim: u32) u32 {
     return @workGroupId(dim);
