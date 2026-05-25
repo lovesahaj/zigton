@@ -63,3 +63,29 @@ pub fn Tile(comptime T: type, comptime shape: anytype, comptime space: AddressSp
 pub fn RegTile(comptime T: type, comptime shape: anytype) type {
     return Tile(T, shape, .reg);
 }
+
+pub const LoadOptions = struct {
+    mask: bool = true,
+};
+
+pub fn load(
+    comptime T: type,
+    comptime shape: anytype,
+    ptr: ConstGlobalPtr(T),
+    opts: LoadOptions,
+) RegTile(T, shape) {
+    // creating the struct tile of register memory
+    const TileT = RegTile(T, shape);
+
+    // this needs be the same tile as the global memory
+    var out: TileT = undefined;
+
+    // adding the values to the tiles
+    // mask is for when we need to a calculation
+    // TODO: mask only can be 0 right now. fix for mask = inf for softmax
+    inline for (0..TileT.len) |i| {
+        out.data[i] = if (opts.mask) ptr[i] else @as(T, 0);
+    }
+
+    return out;
+}
