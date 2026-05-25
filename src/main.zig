@@ -47,7 +47,7 @@ pub fn main() !void {
     args.bind();
 
     const block_x: c_uint = 256;
-    const grid_x: c_uint = (n + block_x - 1) / block_x;
+    const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
 
     try vector_add.launch(.{
         .grid = .{ .x = grid_x },
@@ -71,4 +71,61 @@ pub fn main() !void {
     }
 
     std.debug.print("vector_add OK\n", .{});
+
+    const fill: zt.Kernel = try module.kernel("fill");
+    const fill_value: f32 = 1.0;
+    var args_fill = zt.kernelArgs(.{
+        dz.ptr,
+        fill_value,
+        n,
+    });
+    args_fill.bind();
+
+    try fill.launch(.{
+        .grid = .{ .x = grid_x },
+        .block = .{ .x = block_x },
+        .args = args_fill.ptr(),
+    });
+
+    try ctx.sync();
+    try dz.copyToHost(z[0..]);
+
+    for (0..n) |i| {
+        if (z[i] != fill_value) {
+            std.debug.print("bad at {}: got {}, expected {}\n", .{ i, z[i], fill_value });
+            return error.BadResult;
+        }
+    }
+
+    std.debug.print("fill OK\n", .{});
+
+    const add_scalar: zt.Kernel = try module.kernel("add_scalar");
+    const scalar: f32 = 3.0;
+
+    var scalar_add_args = zt.kernelArgs(.{
+        dx.ptr,
+        dz.ptr,
+        scalar,
+        n,
+    });
+    scalar_add_args.bind();
+
+    try add_scalar.launch(.{
+        .grid = .{ .x = grid_x },
+        .block = .{ .x = block_x },
+        .args = scalar_add_args.ptr(),
+    });
+
+    try ctx.sync();
+    try dz.copyToHost(z[0..]);
+
+
+    for (0..n) |i| {
+        if (z[i] != x[i] + scalar) {
+            std.debug.print("bad at {}: got {}, expected {}\n", .{ i, z[i], fill_value });
+            return error.BadResult;
+        }
+    }
+
+    std.debug.print("add_scalar OK\n", .{});
 }

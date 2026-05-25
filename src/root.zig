@@ -14,3 +14,5 @@ pub const KernelArgs = @import("args.zig").KernelArgs;
 pub const kernelArgs = @import("args.zig").kernelArgs;
 
 pub const Kernel = @import("kernel.zig").Kernel;
+
+pub const utils = @import("utils.zig");
