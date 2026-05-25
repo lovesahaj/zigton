@@ -34,13 +34,10 @@ pub fn KernelArgs(comptime Args: type) type {
             return self;
         }
 
-        pub fn bind(self: *Self) void {
+        pub fn ptr(self: *Self) [*]?*anyopaque {
             inline for (fields, 0..) |_, i| {
                 self.ptrs[i] = @ptrCast(&self.storage[i]);
             }
-        }
-
-        pub fn ptr(self: *Self) [*]?*anyopaque {
             return &self.ptrs;
         }
     };

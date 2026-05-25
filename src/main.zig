@@ -44,7 +44,6 @@ pub fn main() !void {
     try dy.copyFromHost(y[0..]);
 
     var args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
-    args.bind();
 
     const block_x: c_uint = 256;
     const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
@@ -79,7 +78,6 @@ pub fn main() !void {
         fill_value,
         n,
     });
-    args_fill.bind();
 
     try fill.launch(.{
         .grid = .{ .x = grid_x },
@@ -108,7 +106,6 @@ pub fn main() !void {
         scalar,
         n,
     });
-    scalar_add_args.bind();
 
     try add_scalar.launch(.{
         .grid = .{ .x = grid_x },
@@ -118,7 +115,6 @@ pub fn main() !void {
 
     try ctx.sync();
     try dz.copyToHost(z[0..]);
-
 
     for (0..n) |i| {
         if (z[i] != x[i] + scalar) {
