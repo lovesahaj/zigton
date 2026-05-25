@@ -83,7 +83,7 @@ pub fn load(
     // adding the values to the tiles
     // mask is for when we need to a calculation
     // TODO: mask only can be 0 right now. fix for mask = inf for softmax
-    // right now we are just using mask to know where to perform an 
+    // right now we are just using mask to know where to perform an
     // operation and where to not.
     inline for (0..TileT.len) |i| {
         out.data[i] = if (opts.mask) ptr[i] else @as(T, 0);
@@ -96,18 +96,15 @@ pub const StoreOptions = struct {
     mask: bool = true,
 };
 
-
 pub fn store(
-    comptime T: type,
-    comptime shape: anytype,
-    ptr: GlobalPtr(T),
-    tile: RegTile(T, shape),
+    ptr: anytype,
+    tile: anytype,
     opts: StoreOptions,
 ) void {
-    const TileT = RegTile(T, shape);
+    const TileT = @TypeOf(tile);
 
     inline for (0..TileT.len) |i| {
-        if (opts.mask){
+        if (opts.mask) {
             ptr[i] = tile.data[i];
         }
     }
