@@ -31,9 +31,20 @@ pub fn linearIndex() u32 {
     return blockId(0) * blockSize(0) + threadId(0);
 }
 
-pub fn Tile1(comptime T: type, comptime N: u32) type {
+pub fn Tile(comptime T: type, comptime shape: anytype, comptime space: AddressSpace) type {
+    if (shape.len != 1) {
+        @compileError("Phase 1 only support 1D tiles");
+    }
+
+    const N = shape[0];
+
     return struct {
         data: [N]T,
+
+        pub const Element = T;
+        pub const Shape = shape;
+        pub const Space = space;
+        pub const len = N;
 
         const Self = @This();
 
@@ -43,7 +54,12 @@ pub fn Tile1(comptime T: type, comptime N: u32) type {
             inline for (0..N) |i| {
                 out.data[i] = self.data[i] + value;
             }
+
             return out;
         }
     };
+}
+
+pub fn RegTile(comptime T: type, comptime shape: anytype) type {
+    return Tile(T, shape, .reg);
 }
