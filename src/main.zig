@@ -141,3 +141,55 @@ test "add_scalar kernel" {
         try std.testing.expectEqual(expected, z[i]);
     }
 }
+
+
+test "add_scalar tile" {
+    var x: [n]f32 = undefined;
+    var z: [n]f32 = undefined;
+
+    for (0..n) |i| {
+        x[i] = @floatFromInt(i);
+        z[i] = 0.0;
+    }
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(ptx);
+    defer module.deinit();
+
+    const add_scalar: zt.Kernel = try module.kernel("add_const_tile");
+
+    var dx = try zt.DeviceBuffer(f32).alloc(n);
+    defer dx.deinit();
+
+    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    defer dz.deinit();
+
+    try dx.copyFromHost(x[0..]);
+
+    const scalar: f32 = 3.0;
+    var scalar_add_args = zt.kernelArgs(.{
+        dx.ptr,
+        dz.ptr,
+        scalar,
+        n,
+    });
+
+    const grid: c_uint = try zt.utils.cdiv(n, 256);
+    const block: c_uint = 256;
+
+    try add_scalar.launch(.{
+        .grid = .{ .x = grid },
+        .block = .{ .x = block },
+        .args = scalar_add_args.ptr(),
+    });
+
+    try ctx.sync();
+    try dz.copyToHost(z[0..]);
+
+    for (0..n) |i| {
+        const expected = x[i] + scalar;
+        try std.testing.expectEqual(expected, z[i]);
+    }
+}
