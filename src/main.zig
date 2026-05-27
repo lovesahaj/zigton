@@ -193,3 +193,52 @@ test "add_scalar tile" {
         try std.testing.expectEqual(expected, z[i]);
     }
 }
+
+test "add_tile kernel" {
+    var x: [n]f32 = undefined;
+    var y: [n]f32 = undefined;
+    var z: [n]f32 = undefined;
+
+    for (0..n) |i| {
+        x[i] = @floatFromInt(i);
+        y[i] = @floatFromInt(i * 2);
+        z[i] = 0.0;
+    }
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(ptx);
+    defer module.deinit();
+
+    const vector_add: zt.Kernel = try module.kernel("add_tile");
+
+    var dx = try zt.DeviceBuffer(f32).alloc(n);
+    defer dx.deinit();
+
+    var dy = try zt.DeviceBuffer(f32).alloc(n);
+    defer dy.deinit();
+
+    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    defer dz.deinit();
+
+    try dx.copyFromHost(x[0..]);
+    try dy.copyFromHost(y[0..]);
+
+    var args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
+    const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
+
+    try vector_add.launch(.{
+        .grid = .{ .x = grid_x },
+        .block = .{ .x = block_x },
+        .args = args.ptr(),
+    });
+
+    try ctx.sync();
+    try dz.copyToHost(z[0..]);
+
+    for (0..n) |i| {
+        const expected = x[i] + y[i];
+        try std.testing.expectEqual(expected, z[i]);
+    }
+}

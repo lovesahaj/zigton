@@ -51,6 +51,10 @@ pub fn Tile(comptime T: type, comptime shape: anytype, comptime space: AddressSp
         pub fn addScalar(self: Self, value: T) Self {
             return .{ .value = self.value + value };
         }
+
+        pub fn add(self: Self, other: Self) Self {
+            return .{ .value =  self.value + other.value};
+        }
     };
 }
 
@@ -68,8 +72,9 @@ pub fn load(
     ptr: ConstGlobalPtr(T),
     opts: LoadOptions,
 ) RegTile(T, shape) {
+    const TileT = RegTile(T, shape);
     const lane = threadId(0);
-    return RegTile(T, shape){
+    return TileT{
         .value = if (lane < opts.valid_len) ptr[lane] else @as(T, 0),
     };
 }
