@@ -1,5 +1,5 @@
 const builtin = @import("builtin");
-const zt = @import("zigton.zig");
+const zt = @import("zigton_device");
 
 pub export fn vector_add(
     x: zt.ConstGlobalPtr(f32),

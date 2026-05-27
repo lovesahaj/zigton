@@ -128,6 +128,12 @@ fn buildPtx(b: *std.Build, opts: PtxOptions) std.Build.LazyPath {
         .os_tag = .cuda,
     });
 
+    const device_mod = b.createModule(.{
+        .root_source_file = b.path("src/device.zig"),
+        .target = nvptx_target,
+        .optimize = .ReleaseSmall,
+    });
+
     // The kernel is its own module/object, cross-compiled to nvptx64.
     const kernel_obj = b.addObject(.{
         .name = "gpu",
@@ -137,6 +143,9 @@ fn buildPtx(b: *std.Build, opts: PtxOptions) std.Build.LazyPath {
             // ReleaseSmall keeps the kernel lean; the alias problem lives in
             // emission, not optimization, so the opt level is free to choose.
             .optimize = .ReleaseSmall,
+            .imports = &.{
+                .{ .name = "zigton_device", .module = device_mod },
+            },
         }),
     });
     // The device target has no UBSan runtime to link against.
