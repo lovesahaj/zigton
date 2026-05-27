@@ -3,7 +3,7 @@ const cuda = @import("cuda");
 const zt = @import("zigton");
 
 const ptx = @embedFile("gpu_ptx");
-const n: u32 = 1024;
+const n: u32 = 1020;
 const block_x: c_uint = 256;
 
 test "vector_add kernel" {
@@ -176,8 +176,8 @@ test "add_scalar tile" {
         n,
     });
 
-    const grid: c_uint = try zt.utils.cdiv(n, 256);
-    const block: c_uint = 256;
+    const grid: c_uint = try zt.utils.cdiv(n, block_x);
+    const block: c_uint = block_x;
 
     try add_scalar.launch(.{
         .grid = .{ .x = grid },

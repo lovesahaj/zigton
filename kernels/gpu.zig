@@ -47,10 +47,13 @@ pub export fn add_const_tile(
 ) callconv(.kernel) void {
     const BLOCK: u32 = 256;
     const offset = BLOCK * zt.blockId(0);
-    const active = offset + BLOCK <= n;
+    if (offset >= n) return;
+
+    const remaining = n - offset;
+    const valid_len = if (remaining < BLOCK) remaining else BLOCK;
 
     // we load this x into the register - this is the tile
-    const tile = zt.load(f32, .{BLOCK}, x + offset, .{ .mask = active });
+    const tile = zt.load(f32, .{BLOCK}, x + offset, .{ .valid_len = valid_len });
 
     // we add the value to the tile - this give us a new tile
     const out = tile.addScalar(value);
@@ -59,5 +62,5 @@ pub export fn add_const_tile(
     // is the one we added the const to
 
     // we store the tile back to the z pointer which is retured
-    zt.store(z + offset, out, .{ .mask = active });
+    zt.store(z + offset, out, .{ .valid_len = valid_len });
 }

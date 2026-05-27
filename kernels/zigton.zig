@@ -65,7 +65,7 @@ pub fn RegTile(comptime T: type, comptime shape: anytype) type {
 }
 
 pub const LoadOptions = struct {
-    mask: bool = true,
+    valid_len: u32,
 };
 
 pub fn load(
@@ -82,14 +82,14 @@ pub fn load(
 
     // Phase 1 masking is whole tile: inactive tiles are just zeros
     inline for (0..TileT.len) |i| {
-        out.data[i] = if (opts.mask) ptr[i] else @as(T, 0);
+        out.data[i] = if (i < opts.valid_len) ptr[i] else @as(T, 0);
     }
 
     return out;
 }
 
 pub const StoreOptions = struct {
-    mask: bool = true,
+    valid_len: u32,
 };
 
 pub fn store(
@@ -100,7 +100,7 @@ pub fn store(
     const TileT = @TypeOf(tile);
 
     inline for (0..TileT.len) |i| {
-        if (opts.mask) {
+        if (i < opts.valid_len) {
             ptr[i] = tile.data[i];
         }
     }
