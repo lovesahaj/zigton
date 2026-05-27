@@ -39,7 +39,7 @@ pub fn Tile(comptime T: type, comptime shape: anytype, comptime space: AddressSp
     const N = shape[0];
 
     return struct {
-        data: [N]T,
+        value: T,
 
         pub const Element = T;
         pub const Shape = shape;
@@ -49,13 +49,7 @@ pub fn Tile(comptime T: type, comptime shape: anytype, comptime space: AddressSp
         const Self = @This();
 
         pub fn addScalar(self: Self, value: T) Self {
-            var out: Self = undefined;
-
-            inline for (0..N) |i| {
-                out.data[i] = self.data[i] + value;
-            }
-
-            return out;
+            return .{ .value = self.value + value };
         }
     };
 }
@@ -74,18 +68,10 @@ pub fn load(
     ptr: ConstGlobalPtr(T),
     opts: LoadOptions,
 ) RegTile(T, shape) {
-    // creating the struct tile of register memory
-    const TileT = RegTile(T, shape);
-
-    // this needs be the same tile as the global memory
-    var out: TileT = undefined;
-
-    // Phase 1 masking is whole tile: inactive tiles are just zeros
-    inline for (0..TileT.len) |i| {
-        out.data[i] = if (i < opts.valid_len) ptr[i] else @as(T, 0);
-    }
-
-    return out;
+    const lane = threadId(0);
+    return RegTile(T, shape){
+        .value = if (lane < opts.valid_len) ptr[lane] else @as(T, 0),
+    };
 }
 
 pub const StoreOptions = struct {
@@ -97,11 +83,8 @@ pub fn store(
     tile: anytype,
     opts: StoreOptions,
 ) void {
-    const TileT = @TypeOf(tile);
-
-    inline for (0..TileT.len) |i| {
-        if (i < opts.valid_len) {
-            ptr[i] = tile.data[i];
-        }
+    const lane = threadId(0);
+    if (lane < opts.valid_len) {
+        ptr[lane] = tile.value;
     }
 }
