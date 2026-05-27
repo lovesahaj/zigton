@@ -72,3 +72,4 @@ for q in "${qualified[@]}"; do
 done
 
 echo "fix_ptx_ir: wrote $out" >&2
+exit 0
