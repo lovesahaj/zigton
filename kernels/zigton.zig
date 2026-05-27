@@ -80,11 +80,7 @@ pub fn load(
     // this needs be the same tile as the global memory
     var out: TileT = undefined;
 
-    // adding the values to the tiles
-    // mask is for when we need to a calculation
-    // TODO: mask only can be 0 right now. fix for mask = inf for softmax
-    // right now we are just using mask to know where to perform an
-    // operation and where to not.
+    // Phase 1 masking is whole tile: inactive tiles are just zeros
     inline for (0..TileT.len) |i| {
         out.data[i] = if (opts.mask) ptr[i] else @as(T, 0);
     }

@@ -50,7 +50,7 @@ pub export fn add_const_tile(
     const active = offset + BLOCK <= n;
 
     // we load this x into the register - this is the tile
-    const tile = zt.load(f32, .{BLOCK}, x, .{ .mask = active });
+    const tile = zt.load(f32, .{BLOCK}, x + offset, .{ .mask = active });
 
     // we add the value to the tile - this give us a new tile
     const out = tile.addScalar(value);
@@ -59,5 +59,5 @@ pub export fn add_const_tile(
     // is the one we added the const to
 
     // we store the tile back to the z pointer which is retured
-    zt.store(z, out, .{ .mask = active });
+    zt.store(z + offset, out, .{ .mask = active });
 }
