@@ -130,3 +130,8 @@ Planned next pieces:
 - block barrier wrapper
 - `reduce(tile, dim, .sum)`
 - block-level sum reduction kernel
+
+## Writeups
+
+- [Building Zigton Phase 1 - First Kernel compilation and run from Zig](https://portfolio.lovesahaj1225.workers.dev/#writing/building_zigton_part2)
+- [Building Zigton Phase 0 - Zig Host, CUDA PTX and the First Runtime Wrapper](https://portfolio.lovesahaj1225.workers.dev/#writing/building_zigton)
