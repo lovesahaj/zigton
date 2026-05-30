@@ -74,7 +74,7 @@ pub const LoadOptions = struct {
 
 pub fn load(
     comptime T: type,
-    comptime BLOCK: anytype,
+    comptime BLOCK: u32,
     ptr: ConstGlobalPtr(T),
     opts: LoadOptions,
 ) RegTile(T, .{BLOCK}) {
@@ -95,6 +95,8 @@ pub fn store(
     tile: anytype,
     opts: StoreOptions,
 ) void {
+    // per lane model: this thread writes element 'lane' of a BLOCK-wide tile
+    // PRECONDITION: blockDim.x == BLOCK. Enforced at runtime by requireBlock()
     const lane = threadId(0);
     if (lane < opts.valid_len) {
         ptr[lane] = tile.value;

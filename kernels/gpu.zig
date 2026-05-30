@@ -55,7 +55,7 @@ pub export fn add_const_tile(
     const valid_len = if (remaining < BLOCK) remaining else BLOCK;
 
     // we load this x into the register - this is the tile
-    const tile = zt.load(f32, .{BLOCK}, x + offset, .{ .valid_len = valid_len });
+    const tile = zt.load(f32, BLOCK, x + offset, .{ .valid_len = valid_len });
 
     // we add the value to the tile - this give us a new tile
     const out = tile.addScalar(value);
@@ -82,8 +82,8 @@ pub export fn add_tile(
     const valid_len = if (remaining < BLOCK) remaining else BLOCK;
 
     // we load this x into the register - this is the tile
-    const tile_x = zt.load(f32, .{BLOCK}, x + offset, .{ .valid_len = valid_len });
-    const tile_y = zt.load(f32, .{BLOCK}, y + offset, .{ .valid_len = valid_len });
+    const tile_x = zt.load(f32, BLOCK, x + offset, .{ .valid_len = valid_len });
+    const tile_y = zt.load(f32, BLOCK, y + offset, .{ .valid_len = valid_len });
 
     // we add the value to the tile - this give us a new tile
     const out = tile_x.add(tile_y);

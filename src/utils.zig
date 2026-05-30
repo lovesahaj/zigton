@@ -57,7 +57,8 @@ pub fn check(result: cuda.CUresult) CudaError!void {
 }
 
 pub fn errorString(result: cuda.CUresult) []const u8 {
-    var ptr: ?*const u8 = null;
+    var ptr: [*c]const u8 = null;
     if (cuda.cuGetErrorString(result, &ptr) != cuda.CUDA_SUCCESS) return "unknown";
-    return std.mem.span(ptr orelse return "unknown");
+    if (ptr == null) return "unknown";
+    return std.mem.span(ptr); // [*c] coerces to [*:0] for span
 }
