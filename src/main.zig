@@ -42,14 +42,16 @@ test "vector_add kernel" {
     try dx.copyFromHost(x);
     try dy.copyFromHost(y);
 
-    var args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
+    const args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
     const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
 
-    try vector_add.launch(.{
-        .grid = .{ .x = grid_x },
-        .block = .{ .x = block_x },
-        .args = args.ptr(),
-    });
+    try vector_add.launch(
+        .{
+            .grid = .{ .x = grid_x },
+            .block = .{ .x = block_x },
+        },
+        args,
+    );
 
     try ctx.sync();
     try dz.copyToHost(z);
@@ -78,7 +80,7 @@ test "fill kernel" {
     defer dz.deinit();
 
     const fill_value: f32 = 1.0;
-    var args_fill = zt.kernelArgs(.{
+    const args_fill = zt.kernelArgs(.{
         dz.ptr,
         fill_value,
         n,
@@ -86,11 +88,13 @@ test "fill kernel" {
 
     const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
 
-    try fill.launch(.{
-        .grid = .{ .x = grid_x },
-        .block = .{ .x = block_x },
-        .args = args_fill.ptr(),
-    });
+    try fill.launch(
+        .{
+            .grid = .{ .x = grid_x },
+            .block = .{ .x = block_x },
+        },
+        args_fill,
+    );
 
     try ctx.sync();
     try dz.copyToHost(z);
@@ -130,7 +134,7 @@ test "add_scalar kernel" {
     try dx.copyFromHost(x);
 
     const scalar: f32 = 3.0;
-    var scalar_add_args = zt.kernelArgs(.{
+    const scalar_add_args = zt.kernelArgs(.{
         dx.ptr,
         dz.ptr,
         scalar,
@@ -139,11 +143,13 @@ test "add_scalar kernel" {
 
     const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
 
-    try add_scalar.launch(.{
-        .grid = .{ .x = grid_x },
-        .block = .{ .x = block_x },
-        .args = scalar_add_args.ptr(),
-    });
+    try add_scalar.launch(
+        .{
+            .grid = .{ .x = grid_x },
+            .block = .{ .x = block_x },
+        },
+        scalar_add_args,
+    );
 
     try ctx.sync();
     try dz.copyToHost(z);
@@ -184,7 +190,7 @@ test "add_scalar tile" {
     try dx.copyFromHost(x);
 
     const scalar: f32 = 3.0;
-    var scalar_add_args = zt.kernelArgs(.{
+    const scalar_add_args = zt.kernelArgs(.{
         dx.ptr,
         dz.ptr,
         scalar,
@@ -194,11 +200,13 @@ test "add_scalar tile" {
     const grid: c_uint = try zt.utils.cdiv(n, block_x);
     const block: c_uint = block_x;
 
-    try add_scalar.launch(.{
-        .grid = .{ .x = grid },
-        .block = .{ .x = block },
-        .args = scalar_add_args.ptr(),
-    });
+    try add_scalar.launch(
+        .{
+            .grid = .{ .x = grid },
+            .block = .{ .x = block },
+        },
+        scalar_add_args,
+    );
 
     try ctx.sync();
     try dz.copyToHost(z);
@@ -239,14 +247,16 @@ test "add_tile kernel" {
     try dx.copyFromHost(x);
     try dy.copyFromHost(y);
 
-    var args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
+    const args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
     const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
 
-    try vector_add.launch(.{
-        .grid = .{ .x = grid_x },
-        .block = .{ .x = block_x },
-        .args = args.ptr(),
-    });
+    try vector_add.launch(
+        .{
+            .grid = .{ .x = grid_x },
+            .block = .{ .x = block_x },
+        },
+        args,
+    );
 
     try ctx.sync();
     try dz.copyToHost(z);

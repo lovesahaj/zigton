@@ -12,10 +12,13 @@ pub const LaunchConfig = struct {
     block: Dim3,
     shared_bytes: c_uint = 0,
     stream: cuda.CUstream = null,
-    args: [*]?*anyopaque,
 };
 
-pub fn launch(func: cuda.CUfunction, config: LaunchConfig) !void {
+pub fn launch(
+    func: cuda.CUfunction,
+    config: LaunchConfig,
+    kernel_args: [*]?*anyopaque,
+) !void {
     try utils.check(cuda.cuLaunchKernel(
         func,
         config.grid.x,
@@ -26,7 +29,7 @@ pub fn launch(func: cuda.CUfunction, config: LaunchConfig) !void {
         config.block.z,
         config.shared_bytes,
         config.stream,
-        config.args,
+        kernel_args,
         null,
     ));
 }

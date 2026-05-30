@@ -19,16 +19,6 @@ pub const Module = struct {
         self.* = undefined;
     }
 
-    pub fn getFunction(self: *Module, comptime name: [:0]const u8) !cuda.CUfunction {
-        var func: cuda.CUfunction = undefined;
-        try check(cuda.cuModuleGetFunction(
-            &func,
-            self.handle,
-            name,
-        ));
-        return func;
-    }
-
     pub fn kernel(self: Module, comptime name: [:0]const u8) !kernel_mod.Kernel {
         var func: cuda.CUfunction = undefined;
         try check(cuda.cuModuleGetFunction(&func, self.handle, name));
