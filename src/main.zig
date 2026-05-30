@@ -7,9 +7,14 @@ const n: u32 = 1020;
 const block_x: c_uint = 256;
 
 test "vector_add kernel" {
-    var x: [n]f32 = undefined;
-    var y: [n]f32 = undefined;
-    var z: [n]f32 = undefined;
+    const gpa = std.testing.allocator;
+
+    const x = try gpa.alloc(f32, n);
+    defer gpa.free(x);
+    const y = try gpa.alloc(f32, n);
+    defer gpa.free(y);
+    const z = try gpa.alloc(f32, n);
+    defer gpa.free(z);
 
     for (0..n) |i| {
         x[i] = @floatFromInt(i);
@@ -34,8 +39,8 @@ test "vector_add kernel" {
     var dz = try zt.DeviceBuffer(f32).init(n);
     defer dz.deinit();
 
-    try dx.copyFromHost(x[0..]);
-    try dy.copyFromHost(y[0..]);
+    try dx.copyFromHost(x);
+    try dy.copyFromHost(y);
 
     var args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
     const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
@@ -47,7 +52,7 @@ test "vector_add kernel" {
     });
 
     try ctx.sync();
-    try dz.copyToHost(z[0..]);
+    try dz.copyToHost(z);
 
     for (0..n) |i| {
         const expected = x[i] + y[i];
@@ -56,7 +61,10 @@ test "vector_add kernel" {
 }
 
 test "fill kernel" {
-    var z: [n]f32 = undefined;
+    const gpa = std.testing.allocator;
+
+    const z = try gpa.alloc(f32, n);
+    defer gpa.free(z);
 
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
@@ -85,7 +93,7 @@ test "fill kernel" {
     });
 
     try ctx.sync();
-    try dz.copyToHost(z[0..]);
+    try dz.copyToHost(z);
 
     for (0..n) |i| {
         try std.testing.expectEqual(fill_value, z[i]);
@@ -93,8 +101,12 @@ test "fill kernel" {
 }
 
 test "add_scalar kernel" {
-    var x: [n]f32 = undefined;
-    var z: [n]f32 = undefined;
+    const gpa = std.testing.allocator;
+
+    const x = try gpa.alloc(f32, n);
+    defer gpa.free(x);
+    const z = try gpa.alloc(f32, n);
+    defer gpa.free(z);
 
     for (0..n) |i| {
         x[i] = @floatFromInt(i);
@@ -115,7 +127,7 @@ test "add_scalar kernel" {
     var dz = try zt.DeviceBuffer(f32).init(n);
     defer dz.deinit();
 
-    try dx.copyFromHost(x[0..]);
+    try dx.copyFromHost(x);
 
     const scalar: f32 = 3.0;
     var scalar_add_args = zt.kernelArgs(.{
@@ -134,7 +146,7 @@ test "add_scalar kernel" {
     });
 
     try ctx.sync();
-    try dz.copyToHost(z[0..]);
+    try dz.copyToHost(z);
 
     for (0..n) |i| {
         const expected = x[i] + scalar;
@@ -142,10 +154,13 @@ test "add_scalar kernel" {
     }
 }
 
-
 test "add_scalar tile" {
-    var x: [n]f32 = undefined;
-    var z: [n]f32 = undefined;
+    const gpa = std.testing.allocator;
+
+    const x = try gpa.alloc(f32, n);
+    defer gpa.free(x);
+    const z = try gpa.alloc(f32, n);
+    defer gpa.free(z);
 
     for (0..n) |i| {
         x[i] = @floatFromInt(i);
@@ -166,7 +181,7 @@ test "add_scalar tile" {
     var dz = try zt.DeviceBuffer(f32).init(n);
     defer dz.deinit();
 
-    try dx.copyFromHost(x[0..]);
+    try dx.copyFromHost(x);
 
     const scalar: f32 = 3.0;
     var scalar_add_args = zt.kernelArgs(.{
@@ -186,7 +201,7 @@ test "add_scalar tile" {
     });
 
     try ctx.sync();
-    try dz.copyToHost(z[0..]);
+    try dz.copyToHost(z);
 
     for (0..n) |i| {
         const expected = x[i] + scalar;
@@ -195,15 +210,14 @@ test "add_scalar tile" {
 }
 
 test "add_tile kernel" {
-    var x: [n]f32 = undefined;
-    var y: [n]f32 = undefined;
-    var z: [n]f32 = undefined;
+    const gpa = std.testing.allocator;
 
-    for (0..n) |i| {
-        x[i] = @floatFromInt(i);
-        y[i] = @floatFromInt(i * 2);
-        z[i] = 0.0;
-    }
+    const x = try gpa.alloc(f32, n);
+    defer gpa.free(x);
+    const y = try gpa.alloc(f32, n);
+    defer gpa.free(y);
+    const z = try gpa.alloc(f32, n);
+    defer gpa.free(z);
 
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
@@ -222,8 +236,8 @@ test "add_tile kernel" {
     var dz = try zt.DeviceBuffer(f32).init(n);
     defer dz.deinit();
 
-    try dx.copyFromHost(x[0..]);
-    try dy.copyFromHost(y[0..]);
+    try dx.copyFromHost(x);
+    try dy.copyFromHost(y);
 
     var args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
     const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
@@ -235,7 +249,7 @@ test "add_tile kernel" {
     });
 
     try ctx.sync();
-    try dz.copyToHost(z[0..]);
+    try dz.copyToHost(z);
 
     for (0..n) |i| {
         const expected = x[i] + y[i];
