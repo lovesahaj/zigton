@@ -1,5 +1,5 @@
 const cuda = @import("cuda");
-const context = @import("context.zig");
+const utils = @import("utils.zig");
 
 pub const Dim3 = struct {
     x: c_uint,
@@ -16,7 +16,7 @@ pub const LaunchConfig = struct {
 };
 
 pub fn launch(func: cuda.CUfunction, config: LaunchConfig) !void {
-    try context.check(cuda.cuLaunchKernel(
+    try utils.check(cuda.cuLaunchKernel(
         func,
         config.grid.x,
         config.grid.y,

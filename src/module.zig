@@ -1,5 +1,5 @@
 const cuda = @import("cuda");
-const context = @import("context.zig");
+const check = @import("utils.zig").check;
 const kernel_mod = @import("kernel.zig");
 
 pub const Module = struct {
@@ -7,7 +7,7 @@ pub const Module = struct {
 
     pub fn loadData(ptx: []const u8) !Module {
         var handle: cuda.CUmodule = undefined;
-        try context.check(cuda.cuModuleLoadData(&handle, ptx.ptr));
+        try check(cuda.cuModuleLoadData(&handle, ptx.ptr));
 
         return .{
             .handle = handle,
@@ -21,7 +21,7 @@ pub const Module = struct {
 
     pub fn getFunction(self: *Module, comptime name: [:0]const u8) !cuda.CUfunction {
         var func: cuda.CUfunction = undefined;
-        try context.check(cuda.cuModuleGetFunction(
+        try check(cuda.cuModuleGetFunction(
             &func,
             self.handle,
             name,
@@ -31,7 +31,7 @@ pub const Module = struct {
 
     pub fn kernel(self: Module, comptime name: [:0]const u8) !kernel_mod.Kernel {
         var func: cuda.CUfunction = undefined;
-        try context.check(cuda.cuModuleGetFunction(&func, self.handle, name));
+        try check(cuda.cuModuleGetFunction(&func, self.handle, name));
         return .{ .func = func };
     }
 };

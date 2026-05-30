@@ -1,5 +1,5 @@
 const cuda = @import("cuda");
-const context = @import("context.zig");
+const utils = @import("utils.zig");
 
 pub fn DeviceBuffer(comptime T: type) type {
     return struct {
@@ -11,7 +11,7 @@ pub fn DeviceBuffer(comptime T: type) type {
         pub fn init(len: usize) !Self {
             var ptr: cuda.CUdeviceptr_v2 = undefined;
 
-            try context.check(cuda.cuMemAlloc_v2(
+            try utils.check(cuda.cuMemAlloc_v2(
                 &ptr,
                 len * @sizeOf(T),
             ));
@@ -32,7 +32,7 @@ pub fn DeviceBuffer(comptime T: type) type {
             src: []const T,
         ) !void {
             if (src.len > self.len) return error.DeviceBufferTooSmall;
-            try context.check(cuda.cuMemcpyHtoD_v2(
+            try utils.check(cuda.cuMemcpyHtoD_v2(
                 self.ptr,
                 src.ptr,
                 src.len * @sizeOf(T),
@@ -44,7 +44,7 @@ pub fn DeviceBuffer(comptime T: type) type {
             dst: []T,
         ) !void {
             if (dst.len > self.len) return error.HostBufferTooSmall;
-            try context.check(cuda.cuMemcpyDtoH_v2(
+            try utils.check(cuda.cuMemcpyDtoH_v2(
                 dst.ptr,
                 self.ptr,
                 self.len * @sizeOf(T),

@@ -1,5 +1,4 @@
 pub const Context = @import("context.zig").Context;
-pub const check = @import("context.zig").check;
 
 pub const DeviceBuffer = @import("buffer.zig").DeviceBuffer;
 
@@ -16,3 +15,5 @@ pub const kernelArgs = @import("args.zig").kernelArgs;
 pub const Kernel = @import("kernel.zig").Kernel;
 
 pub const utils = @import("utils.zig");
+pub const check = @import("utils.zig").check;
+pub const errorString = @import("utils.zig").errorString;

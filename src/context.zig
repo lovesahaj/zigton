@@ -1,17 +1,8 @@
 // --- context.zig
 const std = @import("std");
 const cuda = @import("cuda");
+const utils = @import("utils.zig");
 
-pub const Error = error{
-    CudaError,
-};
-
-pub fn check(result: cuda.CUresult) Error!void {
-    if (result != cuda.CUDA_SUCCESS) {
-        std.debug.print("CUDA Error encountered: {}\n", .{result});
-        return error.CudaError;
-    }
-}
 
 pub const Options = struct {
     device_index: c_int = 0,
@@ -21,17 +12,17 @@ pub const Context = struct {
     device: cuda.CUdevice,
     handle: cuda.CUcontext,
 
-    pub fn init(opts: Options) !Context {
-        try check(cuda.cuInit(0));
+    pub fn init(opts: Options) utils.CudaError!Context {
+        try utils.check(cuda.cuInit(0));
 
         var device: cuda.CUdevice = undefined;
-        try check(cuda.cuDeviceGet(
+        try utils.check(cuda.cuDeviceGet(
             &device,
             opts.device_index,
         ));
 
         var handle: cuda.CUcontext = undefined;
-        try check(cuda.cuCtxCreate_v4(
+        try utils.check(cuda.cuCtxCreate_v4(
             &handle,
             null,
             0,
@@ -49,7 +40,7 @@ pub const Context = struct {
         self.* = undefined;
     }
 
-    pub fn sync(self: *Context) !void {
-        try check(cuda.cuCtxSynchronize_v2(self.handle));
+    pub fn sync(self: *Context) utils.CudaError!void {
+        try utils.check(cuda.cuCtxSynchronize_v2(self.handle));
     }
 };
