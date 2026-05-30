@@ -46,16 +46,8 @@ pub export fn add_const_tile(
     value: f32,
     n: u32,
 ) callconv(.kernel) void {
-    const BLOCK: u32 = zt.BLOCK;
-    zt.requireBlock(BLOCK);
-    const offset = BLOCK * zt.blockId(0);
-    if (offset >= n) return;
-
-    const remaining = n - offset;
-    const valid_len = if (remaining < BLOCK) remaining else BLOCK;
-
-    // we load this x into the register - this is the tile
-    const tile = zt.load(f32, BLOCK, x + offset, .{ .valid_len = valid_len });
+    zt.requireBlock(zt.THREADS);
+    const tile = zt.load(f32, zt.EPT, x, n);
 
     // we add the value to the tile - this give us a new tile
     const out = tile.addScalar(value);
@@ -64,7 +56,7 @@ pub export fn add_const_tile(
     // is the one we added the const to
 
     // we store the tile back to the z pointer which is retured
-    zt.store(z + offset, out, .{ .valid_len = valid_len });
+    zt.store(z, out, n);
 }
 
 pub export fn add_tile(
@@ -73,17 +65,9 @@ pub export fn add_tile(
     z: zt.GlobalPtr(f32),
     n: u32,
 ) callconv(.kernel) void {
-    const BLOCK: u32 = zt.BLOCK;
-    zt.requireBlock(BLOCK);
-    const offset = BLOCK * zt.blockId(0);
-    if (offset >= n) return;
-
-    const remaining = n - offset;
-    const valid_len = if (remaining < BLOCK) remaining else BLOCK;
-
-    // we load this x into the register - this is the tile
-    const tile_x = zt.load(f32, BLOCK, x + offset, .{ .valid_len = valid_len });
-    const tile_y = zt.load(f32, BLOCK, y + offset, .{ .valid_len = valid_len });
+    zt.requireBlock(zt.THREADS);
+    const tile_x = zt.load(f32, zt.EPT, x, n);
+    const tile_y = zt.load(f32, zt.EPT, y, n);
 
     // we add the value to the tile - this give us a new tile
     const out = tile_x.add(tile_y);
@@ -92,5 +76,5 @@ pub export fn add_tile(
     // is the one we added the const to
 
     // we store the tile back to the z pointer which is retured
-    zt.store(z + offset, out, .{ .valid_len = valid_len });
+    zt.store(z, out, n);
 }

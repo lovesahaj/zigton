@@ -3,8 +3,8 @@ const cuda = @import("cuda");
 const zt = @import("zigton");
 
 const ptx: [:0]const u8 = @embedFile("gpu_ptx");
-const n: u32 = 1020;
-const block_x: c_uint = zt.BLOCK;
+const n: u32 = 100000000;
+const block_x: c_uint = zt.TILE;
 
 test "vector_add kernel" {
     const gpa = std.testing.allocator;
@@ -197,8 +197,8 @@ test "add_scalar tile" {
         n,
     });
 
-    const grid: c_uint = try zt.utils.cdiv(n, block_x);
-    const block: c_uint = block_x;
+    const grid: c_uint = try zt.utils.cdiv(n, zt.TILE);
+    const block: c_uint = zt.THREADS;
 
     try add_scalar.launch(
         .{
@@ -248,12 +248,12 @@ test "add_tile kernel" {
     try dy.copyFromHost(y);
 
     const args = zt.kernelArgs(.{ dx.ptr, dy.ptr, dz.ptr, n });
-    const grid_x: c_uint = try zt.utils.cdiv(n, block_x);
+    const grid_x: c_uint = try zt.utils.cdiv(n, zt.TILE);
 
     try vector_add.launch(
         .{
             .grid = .{ .x = grid_x },
-            .block = .{ .x = block_x },
+            .block = .{ .x = zt.THREADS },
         },
         args,
     );

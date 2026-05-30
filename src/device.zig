@@ -1,4 +1,6 @@
-pub const BLOCK = @import("config.zig").BLOCK;
+pub const THREADS = @import("config.zig").THREADS;
+pub const EPT = @import("config.zig").EPT;
+pub const TILE = @import("config.zig").TILE;
 
 pub const AddressSpace = enum {
     reg,
@@ -33,72 +35,65 @@ pub fn linearIndex() u32 {
     return blockId(0) * blockSize(0) + threadId(0);
 }
 
-pub fn Tile(comptime T: type, comptime shape: anytype, comptime space: AddressSpace) type {
-    if (shape.len != 1) {
-        @compileError("Phase 1 only support 1D tiles");
-    }
-
-    const N = shape[0];
-
+// The tile is a real vector now
+pub fn RegTile(comptime T: type, comptime ept: u32) type {
     return struct {
-        value: T,
-
-        pub const Element = T;
-        pub const Shape = shape;
-        pub const Space = space;
-        pub const len = N;
-
+        data: @Vector(ept, T),
         const Self = @This();
 
-        pub fn addScalar(self: Self, value: T) Self {
-            return .{ .value = self.value + value };
+        pub const Element = T;
+        pub const element_per_thread = ept;
+
+        pub fn addScalar(self: Self, v: T) Self {
+            return .{ .data = self.data + @as(@Vector(ept, T), @splat(v)) };
         }
 
         pub fn add(self: Self, other: Self) Self {
-            return .{ .value =  self.value + other.value};
+            return .{ .data = self.data + other.data };
         }
     };
 }
 
-pub fn RegTile(comptime T: type, comptime shape: anytype) type {
-    return Tile(T, shape, .reg);
+pub fn requireBlock(comptime threads: u32) void {
+    if (blockSize(0) != threads) @trap();
 }
-
-pub fn requireBlock(comptime block_size: u32) void {
-    if (blockSize(0) != block_size) @trap();
-}
-
-pub const LoadOptions = struct {
-    valid_len: u32,
-};
 
 pub fn load(
     comptime T: type,
-    comptime block_size: u32,
+    comptime ept: u32,
     ptr: ConstGlobalPtr(T),
-    opts: LoadOptions,
-) RegTile(T, .{block_size}) {
-    // per lane model: this thread own element 'lane' of a block_size-wide tile
-    // PRECONDITION: blockDim.x == block_size. Enforced at runtime by requireBlock()
-    const lane = threadId(0);
-    return .{
-        .value = if (lane < opts.valid_len) ptr[lane] else @as(T, 0),
-    };
-}
+    n: u32,
+) RegTile(T, ept) {
+    const stride = blockSize(0);
+    const block_base = blockId(0) * stride * ept; // this is owning the block
+    var lanes: [ept]T = @splat(0);
 
-pub const StoreOptions = struct {
-    valid_len: u32,
-};
+    inline for (0..ept) |k| {
+        const kk: u32 = @intCast(k);
+        const idx = block_base + threadId(0) + stride * kk;
+        // thread 0 -> (0, 8, 16, 24) if THREAD = 8 and EPT = 4
+        // thread 1 -> (1, 9, 17, 25) if THREAD = 8 and EPT = 4
+        // this looks weird but when we look at the timesteps
+        // at t = 0, [0, 1, 2, 3, 4, 5, 6, 7] -> this would be loaded
+        // into all the threads. Continguous!!!
+        if (idx < n) lanes[k] = ptr[idx];
+    }
+
+    return .{ .data = lanes };
+}
 
 pub fn store(
     ptr: anytype,
     tile: anytype,
-    opts: StoreOptions,
+    n: u32,
 ) void {
-    // per lane model: this thread writes element 'lane' of a BLOCK-wide tile
-    // PRECONDITION: blockDim.x == BLOCK. Enforced at runtime by requireBlock()
-    const lane = threadId(0);
-    if (lane < opts.valid_len) {
-        ptr[lane] = tile.value;
+    const ept = @TypeOf(tile).element_per_thread; // infered from the tile type comptime
+    const stride = blockSize(0);
+    const block_base = blockId(0) * stride * ept;
+
+    inline for (0..ept) |k| {
+        const kk: u32 = @intCast(k);
+        const idx = block_base + threadId(0) + stride * kk;
+        if (idx < n) ptr[idx] = tile.data[k];
     }
 }

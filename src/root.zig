@@ -18,5 +18,6 @@ pub const utils = @import("utils.zig");
 pub const check = @import("utils.zig").check;
 pub const errorString = @import("utils.zig").errorString;
 
-pub const BLOCK = @import("config.zig").BLOCK;
-
+pub const THREADS = @import("config.zig").THREADS;
+pub const EPT = @import("config.zig").EPT;
+pub const TILE = @import("config.zig").TILE;
