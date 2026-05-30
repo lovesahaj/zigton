@@ -1,4 +1,4 @@
-pub const blockSizeHint = @import("config.zig").BLOCK;
+pub const BLOCK = @import("config.zig").BLOCK;
 
 pub const AddressSpace = enum {
     reg,
@@ -64,8 +64,8 @@ pub fn RegTile(comptime T: type, comptime shape: anytype) type {
     return Tile(T, shape, .reg);
 }
 
-pub fn requireBlock(comptime BLOCK: u32) void {
-    if (blockSize(0) != BLOCK) @trap();
+pub fn requireBlock(comptime block_size: u32) void {
+    if (blockSize(0) != block_size) @trap();
 }
 
 pub const LoadOptions = struct {
@@ -74,12 +74,12 @@ pub const LoadOptions = struct {
 
 pub fn load(
     comptime T: type,
-    comptime BLOCK: u32,
+    comptime block_size: u32,
     ptr: ConstGlobalPtr(T),
     opts: LoadOptions,
-) RegTile(T, .{BLOCK}) {
-    // per lane model: this thread own element 'lane' of a BLOCK-wide tile
-    // PRECONDITION: blockDim.x == BLOCK. Enforced at runtime by requireBlock()
+) RegTile(T, .{block_size}) {
+    // per lane model: this thread own element 'lane' of a block_size-wide tile
+    // PRECONDITION: blockDim.x == block_size. Enforced at runtime by requireBlock()
     const lane = threadId(0);
     return .{
         .value = if (lane < opts.valid_len) ptr[lane] else @as(T, 0),

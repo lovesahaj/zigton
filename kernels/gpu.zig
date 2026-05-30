@@ -46,7 +46,7 @@ pub export fn add_const_tile(
     value: f32,
     n: u32,
 ) callconv(.kernel) void {
-    const BLOCK: u32 = zt.blockSizeHint;
+    const BLOCK: u32 = zt.BLOCK;
     zt.requireBlock(BLOCK);
     const offset = BLOCK * zt.blockId(0);
     if (offset >= n) return;
@@ -73,7 +73,7 @@ pub export fn add_tile(
     z: zt.GlobalPtr(f32),
     n: u32,
 ) callconv(.kernel) void {
-    const BLOCK: u32 = zt.blockSizeHint;
+    const BLOCK: u32 = zt.BLOCK;
     zt.requireBlock(BLOCK);
     const offset = BLOCK * zt.blockId(0);
     if (offset >= n) return;
