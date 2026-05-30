@@ -8,7 +8,7 @@ pub fn DeviceBuffer(comptime T: type) type {
 
         const Self = @This();
 
-        pub fn alloc(len: usize) !Self {
+        pub fn init(len: usize) !Self {
             var ptr: cuda.CUdeviceptr_v2 = undefined;
 
             try context.check(cuda.cuMemAlloc_v2(

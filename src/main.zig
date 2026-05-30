@@ -25,13 +25,13 @@ test "vector_add kernel" {
 
     const vector_add: zt.Kernel = try module.kernel("vector_add");
 
-    var dx = try zt.DeviceBuffer(f32).alloc(n);
+    var dx = try zt.DeviceBuffer(f32).init(n);
     defer dx.deinit();
 
-    var dy = try zt.DeviceBuffer(f32).alloc(n);
+    var dy = try zt.DeviceBuffer(f32).init(n);
     defer dy.deinit();
 
-    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    var dz = try zt.DeviceBuffer(f32).init(n);
     defer dz.deinit();
 
     try dx.copyFromHost(x[0..]);
@@ -66,7 +66,7 @@ test "fill kernel" {
 
     const fill: zt.Kernel = try module.kernel("fill");
 
-    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    var dz = try zt.DeviceBuffer(f32).init(n);
     defer dz.deinit();
 
     const fill_value: f32 = 1.0;
@@ -109,10 +109,10 @@ test "add_scalar kernel" {
 
     const add_scalar: zt.Kernel = try module.kernel("add_scalar");
 
-    var dx = try zt.DeviceBuffer(f32).alloc(n);
+    var dx = try zt.DeviceBuffer(f32).init(n);
     defer dx.deinit();
 
-    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    var dz = try zt.DeviceBuffer(f32).init(n);
     defer dz.deinit();
 
     try dx.copyFromHost(x[0..]);
@@ -160,10 +160,10 @@ test "add_scalar tile" {
 
     const add_scalar: zt.Kernel = try module.kernel("add_const_tile");
 
-    var dx = try zt.DeviceBuffer(f32).alloc(n);
+    var dx = try zt.DeviceBuffer(f32).init(n);
     defer dx.deinit();
 
-    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    var dz = try zt.DeviceBuffer(f32).init(n);
     defer dz.deinit();
 
     try dx.copyFromHost(x[0..]);
@@ -213,13 +213,13 @@ test "add_tile kernel" {
 
     const vector_add: zt.Kernel = try module.kernel("add_tile");
 
-    var dx = try zt.DeviceBuffer(f32).alloc(n);
+    var dx = try zt.DeviceBuffer(f32).init(n);
     defer dx.deinit();
 
-    var dy = try zt.DeviceBuffer(f32).alloc(n);
+    var dy = try zt.DeviceBuffer(f32).init(n);
     defer dy.deinit();
 
-    var dz = try zt.DeviceBuffer(f32).alloc(n);
+    var dz = try zt.DeviceBuffer(f32).init(n);
     defer dz.deinit();
 
     try dx.copyFromHost(x[0..]);
