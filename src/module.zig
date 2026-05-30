@@ -5,7 +5,7 @@ const kernel_mod = @import("kernel.zig");
 pub const Module = struct {
     handle: cuda.CUmodule,
 
-    pub fn loadData(ptx: []const u8) !Module {
+    pub fn loadData(ptx: [:0]const u8) !Module {
         var handle: cuda.CUmodule = undefined;
         try check(cuda.cuModuleLoadData(&handle, ptx.ptr));
 

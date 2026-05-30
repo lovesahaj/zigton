@@ -6,7 +6,7 @@ pub const Module = @import("module.zig").Module;
 
 pub const Dim3 = @import("launch.zig").Dim3;
 
-pub const LunchConfig = @import("launch.zig").LaunchConfig;
+pub const LaunchConfig = @import("launch.zig").LaunchConfig;
 pub const launch = @import("launch.zig").launch;
 
 pub const KernelArgs = @import("args.zig").KernelArgs;
@@ -17,3 +17,6 @@ pub const Kernel = @import("kernel.zig").Kernel;
 pub const utils = @import("utils.zig");
 pub const check = @import("utils.zig").check;
 pub const errorString = @import("utils.zig").errorString;
+
+pub const BLOCK = @import("config.zig").BLOCK;
+

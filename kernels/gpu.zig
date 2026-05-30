@@ -1,5 +1,6 @@
 const builtin = @import("builtin");
 const zt = @import("zigton_device");
+const std = @import("std");
 
 pub export fn vector_add(
     x: zt.ConstGlobalPtr(f32),
@@ -45,7 +46,8 @@ pub export fn add_const_tile(
     value: f32,
     n: u32,
 ) callconv(.kernel) void {
-    const BLOCK: u32 = 256;
+    const BLOCK: u32 = zt.blockSizeHint;
+    zt.requireBlock(BLOCK);
     const offset = BLOCK * zt.blockId(0);
     if (offset >= n) return;
 
@@ -71,7 +73,8 @@ pub export fn add_tile(
     z: zt.GlobalPtr(f32),
     n: u32,
 ) callconv(.kernel) void {
-    const BLOCK: u32 = 256;
+    const BLOCK: u32 = zt.blockSizeHint;
+    zt.requireBlock(BLOCK);
     const offset = BLOCK * zt.blockId(0);
     if (offset >= n) return;
 

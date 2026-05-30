@@ -2,9 +2,9 @@ const std = @import("std");
 const cuda = @import("cuda");
 const zt = @import("zigton");
 
-const ptx = @embedFile("gpu_ptx");
+const ptx: [:0]const u8 = @embedFile("gpu_ptx");
 const n: u32 = 1020;
-const block_x: c_uint = 256;
+const block_x: c_uint = zt.BLOCK;
 
 test "vector_add kernel" {
     const gpa = std.testing.allocator;
