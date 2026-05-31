@@ -304,13 +304,11 @@ test "shared_copy_raw kernel" {
     });
 
     const grid_x: c_uint = try zt.utils.cdiv(shared_n, zt.THREADS);
-    const shared_bytes: c_uint = @intCast(zt.THREADS * @sizeOf(f32));
 
     try shared_copy_raw.launch(
         .{
             .grid = .{ .x = grid_x },
             .block = .{ .x = zt.THREADS },
-            .shared_bytes = shared_bytes,
         },
         args,
     );

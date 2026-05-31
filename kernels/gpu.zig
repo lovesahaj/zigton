@@ -85,13 +85,13 @@ pub export fn shared_copy_raw(
     z: zt.GlobalPtr(f32),
     n: u32,
 ) callconv(.kernel) void {
-    zt.requireBlock(zt.THREADS);
-
     const tid = zt.threadId(0);
     const i = zt.blockId(0) * zt.THREADS + tid;
 
     const safe_i = @min(i, n - 1);
     smem_storage[tid] = x[safe_i];
+
     zt.blockSync();
-    z[safe_i] = smem_storage[tid];
+
+    if (i < n) z[i] = smem_storage[tid];
 }
