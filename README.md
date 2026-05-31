@@ -19,24 +19,25 @@ Current build path:
 kernels/gpu.zig -> LLVM IR -> fix alias -> llc -> PTX -> @embedFile -> host
 ```
 
-Phase 1 tile prototype exists:
+Phase 1 tile prototype exists. Tiles are real `@Vector` values now, and each thread
+owns `EPT` (elements-per-thread) lanes via a strided, coalesced mapping:
 
 ```zig
-const tile = zt.load(f32, .{BLOCK}, x + offset, .{ .valid_len = valid_len });
+const tile = zt.load(f32, zt.EPT, x, n);
 const out = tile.addScalar(value);
-zt.store(z + offset, out, .{ .valid_len = valid_len });
+zt.store(z, out, n);
 ```
 
 Implemented device-side pieces:
 
 - `GlobalPtr(T)` / `ConstGlobalPtr(T)`
-- `Tile(T, shape, space)`
-- `RegTile(T, shape)`
-- `load`
-- `store`
+- `RegTile(T, ept)` backed by a real `@Vector(ept, T)`
+- `load` / `store` with strided, coalesced indexing
+- per-element tail masking against `n`
+- multiple elements per thread (`EPT`), tile width decoupled from block size
 - tile + scalar
 - tile + tile
-- tail-safe `valid_len` handling
+- `requireBlock` launch-geometry guard
 
 Validated kernels:
 
@@ -57,6 +58,7 @@ src/kernel.zig     Kernel wrapper
 src/launch.zig     CUDA launch config
 src/args.zig       Kernel argument packing
 src/device.zig     Device/kernel tile API
+src/config.zig     Shared THREADS / EPT / TILE constants
 kernels/gpu.zig    Prototype kernels
 tools/fix_ptx_ir.sh LLVM IR alias rewrite for NVPTX
 ```
@@ -133,5 +135,6 @@ Planned next pieces:
 
 ## Writeups
 
+- [Building Zigton Phase 1 (Part B) - Real Vector Tiles, Coalescing and Defining Zig-like](https://portfolio.lovesahaj1225.workers.dev/#writing/building_zigton_part1_b)
 - [Building Zigton Phase 1 - First Kernel compilation and run from Zig](https://portfolio.lovesahaj1225.workers.dev/#writing/building_zigton_part2)
 - [Building Zigton Phase 0 - Zig Host, CUDA PTX and the First Runtime Wrapper](https://portfolio.lovesahaj1225.workers.dev/#writing/building_zigton)
