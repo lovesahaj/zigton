@@ -3,7 +3,7 @@ const cuda = @import("cuda");
 const zt = @import("zigton");
 
 const ptx: [:0]const u8 = @embedFile("gpu_ptx");
-const n: u32 = 1000;
+const n: u32 = 100000000;
 const block_x: c_uint = zt.TILE;
 
 test "vector_add kernel" {
@@ -318,7 +318,7 @@ test "shared_copy_raw kernel" {
     try ctx.sync();
     try dz.copyToHost(z);
 
-    for (0..n) |i| {
+    for (0..shared_n) |i| {
         try std.testing.expectEqual(x[i], z[i]);
     }
 }

@@ -1,4 +1,3 @@
-const builtin = @import("builtin");
 const zt = @import("zigton_device");
 const std = @import("std");
 
@@ -91,9 +90,8 @@ pub export fn shared_copy_raw(
     const tid = zt.threadId(0);
     const i = zt.blockId(0) * zt.THREADS + tid;
 
-    if (i < n) smem_storage[tid] = x[i];
-
+    const safe_i = @min(i, n - 1);
+    smem_storage[tid] = x[safe_i];
     zt.blockSync();
-
-    if (i < n) z[i] = smem_storage[tid];
+    z[safe_i] = smem_storage[tid];
 }
