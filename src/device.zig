@@ -8,12 +8,20 @@ pub const AddressSpace = enum {
     global,
 };
 
+pub inline fn blockSync() void {
+    asm volatile ("bar.sync 0;" ::: "memory");
+}
+
 pub fn GlobalPtr(comptime T: type) type {
     return [*]addrspace(.global) T;
 }
 
 pub fn ConstGlobalPtr(comptime T: type) type {
     return [*]addrspace(.global) const T;
+}
+
+pub fn SharedPtr(comptime T: type) type {
+    return [*]addrspace(.shared) T;
 }
 
 // @workGroupId -> ctadi.x (block id)
