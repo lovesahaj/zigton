@@ -9,7 +9,7 @@ pub const AddressSpace = enum {
 };
 
 pub inline fn blockSync() void {
-    asm volatile ("bar.sync 0;" ::: "memory");
+    asm volatile ("bar.sync 0;" ::: .{ .memory = true });
 }
 
 pub fn GlobalPtr(comptime T: type) type {
@@ -20,7 +20,7 @@ pub fn ConstGlobalPtr(comptime T: type) type {
     return [*]addrspace(.global) const T;
 }
 
-pub fn SharedPtr(comptime T: type) type {
+pub inline fn SharedPtr(comptime T: type) type {
     return [*]addrspace(.shared) T;
 }
 
