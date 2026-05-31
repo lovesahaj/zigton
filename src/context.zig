@@ -3,7 +3,6 @@ const std = @import("std");
 const cuda = @import("cuda");
 const utils = @import("utils.zig");
 
-
 pub const Options = struct {
     device_index: c_int = 0,
 };
@@ -41,6 +40,11 @@ pub const Context = struct {
     }
 
     pub fn sync(self: *Context) utils.CudaError!void {
-        try utils.check(cuda.cuCtxSynchronize_v2(self.handle));
+        const result = cuda.cuCtxSynchronize_v2(self.handle);
+
+        utils.check(result) catch |err| {
+            std.debug.print("cuCtxSynchronize failed: {s}\n", .{utils.errorString(result)});
+            return err;
+        };
     }
 };
