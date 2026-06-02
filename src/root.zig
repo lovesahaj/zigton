@@ -18,6 +18,6 @@ pub const utils = @import("utils.zig");
 pub const check = @import("utils.zig").check;
 pub const errorString = @import("utils.zig").errorString;
 
-pub const THREADS = @import("config.zig").THREADS;
-pub const EPT = @import("config.zig").EPT;
-pub const TILE = @import("config.zig").TILE;
+pub const THREADS = @import("device/config.zig").THREADS;
+pub const EPT = @import("device/config.zig").EPT;
+pub const TILE = @import("device/config.zig").TILE;

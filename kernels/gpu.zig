@@ -87,8 +87,8 @@ pub export fn shared_copy_raw(
 ) callconv(.kernel) void {
     zt.requireBlock(zt.THREADS);
 
-    const tid = zt.threadId(0);
-    const i = zt.blockId(0) * zt.THREADS + tid;
+    const tid = zt.utils.threadId(0);
+    const i = zt.utils.blockId(0) * zt.THREADS + tid;
 
     const safe_i = @min(i, n - 1);
     smem_storage[tid] = x[safe_i];

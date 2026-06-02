@@ -129,7 +129,7 @@ fn buildPtx(b: *std.Build, opts: PtxOptions) std.Build.LazyPath {
     });
 
     const device_mod = b.createModule(.{
-        .root_source_file = b.path("src/device.zig"),
+        .root_source_file = b.path("src/device/root.zig"),
         .target = nvptx_target,
         .optimize = .ReleaseSmall,
     });
