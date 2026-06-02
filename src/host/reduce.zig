@@ -1,5 +1,3 @@
-const std = @import("std");
-
 const Context = @import("context.zig").Context;
 const Kernel = @import("kernel.zig").Kernel;
 const DeviceBuffer = @import("buffer.zig").DeviceBuffer;
@@ -8,13 +6,15 @@ const kernelArgs = @import("args.zig").kernelArgs;
 
 const config = @import("../device/config.zig");
 
-/// Reduces `input[0..n]` to on F32. May overwrite `input`.
+/// Reduces `input[0..n]` to one f32. May overwrite `input`.
 pub fn reduceSumF32(
     ctx: *Context,
     block_sum: Kernel,
     input: DeviceBuffer(f32),
     n: u32,
 ) !f32 {
+    if (n == 0) return 0.0;
+
     const da = input;
 
     var db = try DeviceBuffer(f32).init(n);
