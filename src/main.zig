@@ -325,16 +325,20 @@ test "sum_reduction kernel" {
     const gpa = std.testing.allocator;
     const shared_n: u32 = zt.THREADS * 4 + 7;
 
+    const grid_x: c_uint = try zt.utils.cdiv(shared_n, zt.THREADS);
+
     const x = try gpa.alloc(f32, shared_n);
     defer gpa.free(x);
-    const z = try gpa.alloc(f32, 1);
+    const z = try gpa.alloc(f32, grid_x);
     defer gpa.free(z);
 
     for (0..shared_n) |i| {
         x[i] = @floatFromInt(i);
     }
 
-    z[0] = 0.0;
+    for (0..grid_x) |i| {
+        z[i] = 0.0;
+    }
 
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
@@ -358,8 +362,6 @@ test "sum_reduction kernel" {
         shared_n,
     });
 
-    const grid_x: c_uint = try zt.utils.cdiv(shared_n, zt.THREADS);
-
     try shared_copy_raw.launch(
         .{
             .grid = .{ .x = grid_x },
@@ -373,5 +375,11 @@ test "sum_reduction kernel" {
 
     const vec: @Vector(shared_n, f32) = x[0..shared_n].*;
 
-    try std.testing.expectEqual(@reduce(.Add, vec), z[0]);
+    var expected_sum: f32 = 0.0;
+
+    for (0..grid_x) |i| {
+        expected_sum += z[i];
+    }
+
+    try std.testing.expectEqual(@reduce(.Add, vec), expected_sum);
 }

@@ -126,7 +126,7 @@ pub export fn sum_reduction(
         zt.blockSync(); 
     }
 
-    if (tid == 0) z[0] = shared_tile.load(tid);
+    if (tid == 0) z[zt.utils.blockId(0)] = shared_tile.load(tid);
 }
 
 
