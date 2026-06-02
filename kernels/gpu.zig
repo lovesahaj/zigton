@@ -108,27 +108,9 @@ pub export fn block_sum(
     const tile = zt.load(f32, zt.EPT, x, n);
 
     const T = @TypeOf(tile).Element;
+
     const partial_sum: T = @reduce(.Add, tile.data);
+    const block_sum_value = zt.blockReduceSum(f32, partial_sum);
 
-    const shared_tile = zt.sharedTile(f32, zt.THREADS, .block_sum);
-    const tid = zt.utils.threadId(0);
-    shared_tile.store(tid, partial_sum);
-
-    zt.blockSync();
-
-    var stride: u32 = zt.THREADS / 2;
-
-    while (stride > 0) : (stride /= 2) {
-        if (tid < stride) {
-            const a = shared_tile.load(tid);
-            const b = shared_tile.load(tid + stride);
-            shared_tile.store(tid, a + b);
-        }
-        zt.blockSync(); 
-    }
-
-    if (tid == 0) z[zt.utils.blockId(0)] = shared_tile.load(0);
+    if (zt.utils.threadId(0) == 0) z[zt.utils.blockId(0)] = block_sum_value;
 }
-
-
-

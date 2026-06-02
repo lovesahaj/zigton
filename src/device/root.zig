@@ -16,3 +16,5 @@ pub const store = @import("regtile.zig").store;
 
 pub const SharedTile = @import("sharedtile.zig").SharedTile;
 pub const sharedTile = @import("sharedtile.zig").sharedTile;
+
+pub const blockReduceSum = @import("reduce.zig").blockReduceSum;
