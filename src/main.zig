@@ -321,7 +321,7 @@ test "shared_copy_raw kernel" {
     }
 }
 
-test "sum_reduction kernel" {
+test "block_sum kernel" {
     const gpa = std.testing.allocator;
     const shared_n: u32 = zt.THREADS * 4 + 7;
 
@@ -346,7 +346,7 @@ test "sum_reduction kernel" {
     var module = try zt.Module.loadData(ptx);
     defer module.deinit();
 
-    const shared_copy_raw: zt.Kernel = try module.kernel("sum_reduction");
+    const block_sum: zt.Kernel = try module.kernel("block_sum");
 
     var dx = try zt.DeviceBuffer(f32).init(shared_n);
     defer dx.deinit();
@@ -362,7 +362,7 @@ test "sum_reduction kernel" {
         shared_n,
     });
 
-    try shared_copy_raw.launch(
+    try block_sum.launch(
         .{
             .grid = .{ .x = grid_x },
             .block = .{ .x = zt.THREADS },

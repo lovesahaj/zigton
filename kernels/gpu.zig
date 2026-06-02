@@ -98,7 +98,7 @@ pub export fn shared_copy_raw(
     if (i < n) z[i] = shared_tile.load(tid);
 }
 
-pub export fn sum_reduction(
+pub export fn block_sum(
     x: zt.ConstGlobalPtr(f32),
     z: zt.GlobalPtr(f32),
     n: u32,
