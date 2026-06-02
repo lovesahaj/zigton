@@ -1,5 +1,3 @@
-const utils = @import("utils.zig");
-
 pub fn SharedTile(comptime T: type, comptime n: u32) type {
     return struct {
         data: *addrspace(.shared) [n]T,
@@ -27,8 +25,8 @@ pub inline fn sharedTile(
 ) SharedTile(T, n) {
     _ = tag;
 
-    // Zig allows static local variabls through nested containers
-    // This means we can hide stoarge inside a helper
+    // Zig allows static local variables through nested containers.
+    // This lets the helper hide shared storage from kernel code.
     const Storage = struct {
         var data: [n]T addrspace(.shared) = undefined;
     };

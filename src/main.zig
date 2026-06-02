@@ -379,8 +379,6 @@ test "sum_reduction kernel" {
     );
 
     try ctx.sync();
-    try dz.copyToHost(z);
-
     const vec: @Vector(shared_n, f32) = x[0..shared_n].*;
 
     const sum_args = zt.kernelArgs(.{
@@ -389,7 +387,6 @@ test "sum_reduction kernel" {
         grid_x,
     });
 
-    try dz.copyFromHost(z);
     try block_sum.launch(
         .{
             .grid = .{ .x = 1 },
@@ -399,9 +396,9 @@ test "sum_reduction kernel" {
     );
 
     try ctx.sync();
-    try dsum.copyToHost(z);
+    try dsum.copyToHost(sum);
 
-    try std.testing.expectEqual(@reduce(.Add, vec), z[0]);
+    try std.testing.expectEqual(@reduce(.Add, vec), sum[0]);
 }
 
 test "sum_reduction_loop kernel" {

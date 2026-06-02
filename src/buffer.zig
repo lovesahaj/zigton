@@ -47,7 +47,7 @@ pub fn DeviceBuffer(comptime T: type) type {
             try utils.check(cuda.cuMemcpyDtoH_v2(
                 dst.ptr,
                 self.ptr,
-                self.len * @sizeOf(T),
+                dst.len * @sizeOf(T),
             ));
         }
     };
