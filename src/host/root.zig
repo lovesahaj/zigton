@@ -17,3 +17,5 @@ pub const Kernel = @import("kernel.zig").Kernel;
 pub const utils = @import("utils.zig");
 pub const check = @import("utils.zig").check;
 pub const errorString = @import("utils.zig").errorString;
+
+pub const reduce = @import("reduce.zig");

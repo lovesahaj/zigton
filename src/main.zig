@@ -423,48 +423,13 @@ test "sum_reduction_loop kernel" {
     var da = try zt.DeviceBuffer(f32).init(N);
     defer da.deinit();
 
-    var db = try zt.DeviceBuffer(f32).init(N);
-    defer db.deinit();
-
     try da.copyFromHost(a);
-
-    var current_count = N;
-    var current_is_a = true;
-
-    while (current_count > 1) {
-        const in_ptr = if (current_is_a) da.ptr else db.ptr;
-        const out_ptr = if (current_is_a) db.ptr else da.ptr;
-
-        const number_of_blocks = try zt.utils.cdiv(current_count, zt.TILE); // grid_x
-        const number_of_threads = zt.THREADS; // block_x
-
-        const args = zt.kernelArgs(.{
-            in_ptr,
-            out_ptr,
-            current_count,
-        });
-
-        try block_sum.launch(.{
-            .grid = .{ .x = number_of_blocks },
-            .block = .{ .x = number_of_threads },
-        }, args);
-
-        try ctx.sync();
-        current_count = number_of_blocks;
-        current_is_a = !current_is_a;
-    }
-
-    const out = try gpa.alloc(f32, 1);
-    defer gpa.free(out);
-
-    if (current_is_a) {
-        try da.copyToHost(out);
-    } else {
-        try db.copyToHost(out);
-    }
 
     var expected: f32 = 0.0;
     for (a) |v| expected += v;
 
-    try std.testing.expectEqual(expected, out[0]);
+    try std.testing.expectEqual(
+        expected,
+        try zt.reduce.reduceSumF32(&ctx, block_sum, da, N),
+    );
 }
