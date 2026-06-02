@@ -403,3 +403,73 @@ test "sum_reduction kernel" {
 
     try std.testing.expectEqual(@reduce(.Add, vec), z[0]);
 }
+
+test "sum_reduction_loop kernel" {
+    const gpa = std.testing.allocator;
+    const N: u32 = zt.THREADS * 4 + 7;
+
+    const a = try gpa.alloc(f32, N);
+    defer gpa.free(a);
+    const b = try gpa.alloc(f32, N);
+    defer gpa.free(b);
+
+    for (0..N) |i| {
+        a[i] = @floatFromInt(i);
+    }
+
+    @memset(b, 0.0);
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(ptx);
+    defer module.deinit();
+
+    const block_sum: zt.Kernel = try module.kernel("block_sum");
+
+    var da = try zt.DeviceBuffer(f32).init(N);
+    defer da.deinit();
+
+    var db = try zt.DeviceBuffer(f32).init(N);
+    defer db.deinit();
+
+    try da.copyFromHost(a);
+
+    var current_count = N;
+    var current_is_a = true;
+
+    while (current_count > 1) {
+        const in_ptr = if (current_is_a) da.ptr else db.ptr;
+        const out_ptr = if (current_is_a) db.ptr else da.ptr;
+
+        const number_of_blocks = try zt.utils.cdiv(current_count, zt.TILE); // grid_x
+        const number_of_threads = zt.THREADS; // block_x
+
+        const args = zt.kernelArgs(.{
+            in_ptr,
+            out_ptr,
+            current_count,
+        });
+
+        try block_sum.launch(.{
+            .grid = .{ .x = number_of_blocks },
+            .block = .{ .x = number_of_threads },
+        }, args);
+
+        try ctx.sync();
+        current_count = number_of_blocks;
+        current_is_a = !current_is_a;
+    }
+
+    const out = try gpa.alloc(f32, N);
+    defer gpa.free(out);
+
+    if (current_is_a) {
+        try da.copyToHost(out);
+    } else {
+        try db.copyToHost(out);
+    }
+
+    const vec: @Vector(N, f32) = a[0..N].*;
+    try std.testing.expectEqual(@reduce(.Add, vec), out[0]);
+}
