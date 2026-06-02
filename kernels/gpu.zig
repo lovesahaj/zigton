@@ -84,6 +84,7 @@ pub export fn shared_copy_raw(
     n: u32,
 ) callconv(.kernel) void {
     zt.requireBlock(zt.THREADS);
+    if (n == 0) return;
 
     const tid = zt.utils.threadId(0);
     const i = zt.utils.blockId(0) * zt.THREADS + tid;

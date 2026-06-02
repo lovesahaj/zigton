@@ -1,6 +1,6 @@
 const utils = @import("utils.zig");
 
-pub fn ShaTile(comptime T: type, comptime n: u32) type {
+pub fn SharedTile(comptime T: type, comptime n: u32) type {
     return struct {
         data: *addrspace(.shared) [n]T,
 
@@ -24,7 +24,7 @@ pub inline fn sharedTile(
     comptime T: type,
     comptime n: u32,
     comptime tag: anytype,
-) ShaTile(T, n) {
+) SharedTile(T, n) {
     _ = tag;
 
     // Zig allows static local variabls through nested containers
