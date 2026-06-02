@@ -3,7 +3,7 @@ const cuda = @import("cuda");
 const zt = @import("zigton");
 
 const ptx: [:0]const u8 = @embedFile("gpu_ptx");
-const n: u32 = 10000;
+const n: u32 = 100000000;
 const block_x: c_uint = zt.TILE;
 
 test "vector_add kernel" {
@@ -410,14 +410,10 @@ test "sum_reduction_loop kernel" {
 
     const a = try gpa.alloc(f32, N);
     defer gpa.free(a);
-    const b = try gpa.alloc(f32, N);
-    defer gpa.free(b);
 
     for (0..N) |i| {
         a[i] = @floatFromInt(i);
     }
-
-    @memset(b, 0.0);
 
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
@@ -461,7 +457,7 @@ test "sum_reduction_loop kernel" {
         current_is_a = !current_is_a;
     }
 
-    const out = try gpa.alloc(f32, N);
+    const out = try gpa.alloc(f32, 1);
     defer gpa.free(out);
 
     if (current_is_a) {
@@ -470,6 +466,8 @@ test "sum_reduction_loop kernel" {
         try db.copyToHost(out);
     }
 
-    const vec: @Vector(N, f32) = a[0..N].*;
-    try std.testing.expectEqual(@reduce(.Add, vec), out[0]);
+    var expected: f32 = 0.0;
+    for (a) |v| expected += v;
+
+    try std.testing.expectEqual(expected, out[0]);
 }

@@ -127,7 +127,7 @@ pub export fn block_sum(
         zt.blockSync(); 
     }
 
-    if (tid == 0) z[zt.utils.blockId(0)] = shared_tile.load(tid);
+    if (tid == 0) z[zt.utils.blockId(0)] = shared_tile.load(0);
 }
 
 
