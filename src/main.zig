@@ -351,7 +351,7 @@ test "sum_reduction kernel" {
     var dx = try zt.DeviceBuffer(f32).init(shared_n);
     defer dx.deinit();
 
-    var dz = try zt.DeviceBuffer(f32).init(1);
+    var dz = try zt.DeviceBuffer(f32).init(grid_x);
     defer dz.deinit();
 
     try dx.copyFromHost(x);

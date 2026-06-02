@@ -104,6 +104,7 @@ pub export fn sum_reduction(
     n: u32,
 ) callconv(.kernel) void {
     zt.requireBlock(zt.THREADS);
+    if (n == 0) return;
     const tile = zt.load(f32, zt.EPT, x, n);
 
     const T = @TypeOf(tile).Element;
