@@ -1,4 +1,3 @@
-// --- context.zig
 const std = @import("std");
 const cuda = @import("cuda");
 const utils = @import("utils.zig");

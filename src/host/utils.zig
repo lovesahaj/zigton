@@ -6,7 +6,7 @@ pub const MathError = error{
 };
 
 pub fn cdiv(x: anytype, y: anytype) !c_uint {
-    const T = @TypeOf(x, y); 
+    const T = @TypeOf(x, y);
 
     // Notice the lowercase .int and .float here
     switch (@typeInfo(T)) {
@@ -29,7 +29,7 @@ pub fn cdiv(x: anytype, y: anytype) !c_uint {
         },
         else => {
             @compileError("cdiv only supports integers and floats");
-        }
+        },
     }
 }
 

@@ -34,7 +34,7 @@ pub fn build(b: *std.Build) void {
     // CUDA header translation (host side) — unchanged from before.
     // ------------------------------------------------------------------
     const c_translation = b.addTranslateC(.{
-        .root_source_file = b.path("src/cuda_includes.h"),
+        .root_source_file = b.path("src/host/cuda_includes.h"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,

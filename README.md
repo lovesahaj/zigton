@@ -50,16 +50,20 @@ Validated kernels:
 ## Layout
 
 ```text
-src/root.zig       Host API entrypoint
-src/context.zig    CUDA context wrapper
-src/buffer.zig     DeviceBuffer(T)
-src/module.zig     PTX module loading
-src/kernel.zig     Kernel wrapper
-src/launch.zig     CUDA launch config
-src/args.zig       Kernel argument packing
-src/device.zig     Device/kernel tile API
-src/config.zig     Shared THREADS / EPT / TILE constants
-kernels/gpu.zig    Prototype kernels
+src/root.zig           Public host API entrypoint
+src/host/root.zig      Host CUDA API aggregate
+src/host/context.zig   CUDA context wrapper
+src/host/buffer.zig    DeviceBuffer(T)
+src/host/module.zig    PTX module loading
+src/host/kernel.zig    Kernel wrapper
+src/host/launch.zig    CUDA launch config
+src/host/args.zig      Kernel argument packing
+src/host/utils.zig     Host math/CUDA helpers
+src/device/root.zig    Device/kernel API aggregate
+src/device/regtile.zig Register tile API
+src/device/sharedtile.zig Shared tile API
+src/device/config.zig  Shared THREADS / EPT / TILE constants
+kernels/gpu.zig        Prototype kernels
 tools/fix_ptx_ir.sh LLVM IR alias rewrite for NVPTX
 ```
 
