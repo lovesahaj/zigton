@@ -19,8 +19,9 @@ Current build path:
 kernels/gpu.zig -> LLVM IR -> fix alias -> llc -> PTX -> @embedFile -> host
 ```
 
-Phase 1 tile prototype exists. Tiles are real `@Vector` values now, and each thread
-owns `EPT` (elements-per-thread) lanes via a strided, coalesced mapping:
+Phase 2 shared-memory and reduction prototype exists. Register tiles are real
+`@Vector` values, and each thread owns `EPT` (elements-per-thread) lanes via a
+strided, coalesced mapping:
 
 ```zig
 const tile = zt.load(f32, zt.EPT, x, n);
@@ -38,6 +39,10 @@ Implemented device-side pieces:
 - tile + scalar
 - tile + tile
 - `requireBlock` launch-geometry guard
+- `SharedTile(T, n)` backed by static `addrspace(.shared)` storage
+- `blockSync()` barrier wrapper lowering to `bar.sync 0`
+- device-side `blockReduceSum`
+- host-side `reduceSumF32`
 
 Validated kernels:
 
@@ -46,11 +51,14 @@ Validated kernels:
 - `add_scalar`
 - `add_const_tile`
 - `add_tile`
+- `shared_copy`
+- `block_sum`
 
 ## Layout
 
 ```text
 src/root.zig           Public host API entrypoint
+src/main.zig           Minimal executable entrypoint
 src/host/root.zig      Host CUDA API aggregate
 src/host/context.zig   CUDA context wrapper
 src/host/buffer.zig    DeviceBuffer(T)
@@ -64,6 +72,7 @@ src/device/regtile.zig Register tile API
 src/device/sharedtile.zig Shared tile API
 src/device/config.zig  Shared THREADS / EPT / TILE constants
 kernels/gpu.zig        Prototype kernels
+tests/gpu.zig          GPU integration tests
 tools/fix_ptx_ir.sh LLVM IR alias rewrite for NVPTX
 ```
 
@@ -126,16 +135,14 @@ before `llc` lowers them to PTX.
 
 ## Roadmap
 
-Current next step: Phase 2 shared memory and cooperative operations.
+Current next step: Phase 3 host ergonomics and broader reduction APIs.
 
 Planned next pieces:
 
-- `SharedTile(T, shape)`
-- `load_shared`
-- `load_reg`
-- block barrier wrapper
-- `reduce(tile, dim, .sum)`
-- block-level sum reduction kernel
+- cleaner public reduction API that owns kernel lookup
+- reusable scratch-buffer reduction path
+- broader reduction operations beyond f32 sum
+- stronger PTX audit tooling for shared memory/barrier checks
 
 ## Writeups
 

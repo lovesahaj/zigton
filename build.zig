@@ -100,14 +100,31 @@ pub fn build(b: *std.Build) void {
     });
     const run_mod_tests = b.addRunArtifact(mod_tests);
 
-    const exe_tests = b.addTest(.{
-        .root_module = exe.root_module,
+    const gpu_tests_mod = b.createModule(.{
+        .root_source_file = b.path("tests/gpu.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "zigton", .module = mod },
+            .{ .name = "cuda", .module = cuda_module },
+        },
     });
-    const run_exe_tests = b.addRunArtifact(exe_tests);
+    gpu_tests_mod.addAnonymousImport("gpu_ptx", .{
+        .root_source_file = ptx,
+    });
+
+    const gpu_tests = b.addTest(.{
+        .root_module = gpu_tests_mod,
+    });
+    const run_gpu_tests = b.addRunArtifact(gpu_tests);
 
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
-    test_step.dependOn(&run_exe_tests.step);
+    test_step.dependOn(&run_gpu_tests.step);
+    if (b.args) |args| {
+        run_mod_tests.addArgs(args);
+        run_gpu_tests.addArgs(args);
+    }
 }
 
 const PtxOptions = struct {

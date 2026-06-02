@@ -7,7 +7,7 @@ pub fn blockReduceSum(
     value: T,
 ) T {
     const tid = utils.threadId(0);
-    const partials = shared.sharedTile(T, THREADS, .block_reduce_sum,);
+    const partials = shared.sharedTile(T, THREADS, .block_reduce_sum);
 
     partials.store(tid, value);
     utils.blockSync();

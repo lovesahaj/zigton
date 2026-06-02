@@ -78,7 +78,7 @@ pub export fn add_tile(
     zt.store(z, out, n);
 }
 
-pub export fn shared_copy_raw(
+pub export fn shared_copy(
     x: zt.ConstGlobalPtr(f32),
     z: zt.GlobalPtr(f32),
     n: u32,
@@ -110,7 +110,7 @@ pub export fn block_sum(
     const T = @TypeOf(tile).Element;
 
     const partial_sum: T = @reduce(.Add, tile.data);
-    const block_sum_value = zt.blockReduceSum(f32, partial_sum);
+    const block_sum_value = zt.blockReduceSum(T, partial_sum);
 
     if (zt.utils.threadId(0) == 0) z[zt.utils.blockId(0)] = block_sum_value;
 }

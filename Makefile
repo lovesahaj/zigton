@@ -6,3 +6,9 @@ run_kernel:
 
 test_kernel:
 	zig build test -Dllc-path=../.local/llvm22/bin/llc -Dcuda-prefix=${HOME}/.local/cuda-13.0
+
+test_shared:
+	zig build test -Dllc-path=../.local/llvm22/bin/llc -Dcuda-prefix=${HOME}/.local/cuda-13.0 -- --test-filter shared_copy
+
+test_reduce:
+	zig build test -Dllc-path=../.local/llvm22/bin/llc -Dcuda-prefix=${HOME}/.local/cuda-13.0 -- --test-filter reduceSumF32
