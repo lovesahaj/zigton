@@ -3,7 +3,7 @@ const cuda = @import("cuda");
 const zt = @import("zigton");
 
 const ptx: [:0]const u8 = @embedFile("gpu_ptx");
-const n: u32 = 100000000;
+const n: u32 = 10000;
 const block_x: c_uint = zt.TILE;
 
 test "vector_add kernel" {
@@ -321,16 +321,19 @@ test "shared_copy_raw kernel" {
     }
 }
 
-test "block_sum kernel" {
+test "sum_reduction kernel" {
     const gpa = std.testing.allocator;
     const shared_n: u32 = zt.THREADS * 4 + 7;
 
-    const grid_x: c_uint = try zt.utils.cdiv(shared_n, zt.THREADS);
+    const grid_x: c_uint = try zt.utils.cdiv(shared_n, zt.TILE);
 
     const x = try gpa.alloc(f32, shared_n);
     defer gpa.free(x);
     const z = try gpa.alloc(f32, grid_x);
     defer gpa.free(z);
+
+    const sum = try gpa.alloc(f32, 1);
+    defer gpa.free(sum);
 
     for (0..shared_n) |i| {
         x[i] = @floatFromInt(i);
@@ -339,6 +342,8 @@ test "block_sum kernel" {
     for (0..grid_x) |i| {
         z[i] = 0.0;
     }
+
+    sum[0] = 0.0;
 
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
@@ -353,6 +358,9 @@ test "block_sum kernel" {
 
     var dz = try zt.DeviceBuffer(f32).init(grid_x);
     defer dz.deinit();
+
+    var dsum = try zt.DeviceBuffer(f32).init(1);
+    defer dsum.deinit();
 
     try dx.copyFromHost(x);
 
@@ -375,11 +383,23 @@ test "block_sum kernel" {
 
     const vec: @Vector(shared_n, f32) = x[0..shared_n].*;
 
-    var expected_sum: f32 = 0.0;
+    const sum_args = zt.kernelArgs(.{
+        dz.ptr,
+        dsum.ptr,
+        grid_x,
+    });
 
-    for (0..grid_x) |i| {
-        expected_sum += z[i];
-    }
+    try dz.copyFromHost(z);
+    try block_sum.launch(
+        .{
+            .grid = .{ .x = 1 },
+            .block = .{ .x = zt.THREADS },
+        },
+        sum_args,
+    );
 
-    try std.testing.expectEqual(@reduce(.Add, vec), expected_sum);
+    try ctx.sync();
+    try dsum.copyToHost(z);
+
+    try std.testing.expectEqual(@reduce(.Add, vec), z[0]);
 }
