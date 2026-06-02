@@ -78,8 +78,6 @@ pub export fn add_tile(
     zt.store(z, out, n);
 }
 
-var smem_storage: [zt.THREADS]f32 addrspace(.shared) = undefined;
-
 pub export fn shared_copy_raw(
     x: zt.ConstGlobalPtr(f32),
     z: zt.GlobalPtr(f32),
@@ -89,11 +87,12 @@ pub export fn shared_copy_raw(
 
     const tid = zt.utils.threadId(0);
     const i = zt.utils.blockId(0) * zt.THREADS + tid;
-
     const safe_i = @min(i, n - 1);
-    smem_storage[tid] = x[safe_i];
+
+    const shared_tile = zt.sharedTile(f32, zt.THREADS, .shared_tile);
+    shared_tile.store(tid, x[safe_i]);
 
     zt.blockSync();
 
-    if (i < n) z[i] = smem_storage[tid];
+    if (i < n) z[i] = shared_tile.load(tid);
 }
