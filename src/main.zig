@@ -320,3 +320,58 @@ test "shared_copy_raw kernel" {
         try std.testing.expectEqual(x[i], z[i]);
     }
 }
+
+test "sum_reduction kernel" {
+    const gpa = std.testing.allocator;
+    const shared_n: u32 = zt.THREADS * 4 + 7;
+
+    const x = try gpa.alloc(f32, shared_n);
+    defer gpa.free(x);
+    const z = try gpa.alloc(f32, 1);
+    defer gpa.free(z);
+
+    for (0..shared_n) |i| {
+        x[i] = @floatFromInt(i);
+    }
+
+    z[0] = 0.0;
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(ptx);
+    defer module.deinit();
+
+    const shared_copy_raw: zt.Kernel = try module.kernel("sum_reduction");
+
+    var dx = try zt.DeviceBuffer(f32).init(shared_n);
+    defer dx.deinit();
+
+    var dz = try zt.DeviceBuffer(f32).init(1);
+    defer dz.deinit();
+
+    try dx.copyFromHost(x);
+
+    const args = zt.kernelArgs(.{
+        dx.ptr,
+        dz.ptr,
+        shared_n,
+    });
+
+    const grid_x: c_uint = try zt.utils.cdiv(shared_n, zt.THREADS);
+
+    try shared_copy_raw.launch(
+        .{
+            .grid = .{ .x = grid_x },
+            .block = .{ .x = zt.THREADS },
+        },
+        args,
+    );
+
+    try ctx.sync();
+    try dz.copyToHost(z);
+
+    const vec: @Vector(shared_n, f32) = x[0..shared_n].*;
+
+    try std.testing.expectEqual(@reduce(.Add, vec), z[0]);
+}

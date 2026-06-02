@@ -97,3 +97,37 @@ pub export fn shared_copy_raw(
 
     if (i < n) z[i] = shared_tile.load(tid);
 }
+
+pub export fn sum_reduction(
+    x: zt.ConstGlobalPtr(f32),
+    z: zt.GlobalPtr(f32),
+    n: u32,
+) callconv(.kernel) void {
+    zt.requireBlock(zt.THREADS);
+    const tile = zt.load(f32, zt.EPT, x, n);
+
+    const T = @TypeOf(tile).Element;
+    const partial_sum: T = @reduce(.Add, tile.data);
+
+    const shared_tile = zt.sharedTile(f32, zt.THREADS, .block_sum);
+    const tid = zt.utils.threadId(0);
+    shared_tile.store(tid, partial_sum);
+
+    zt.blockSync();
+
+    var stride: u32 = zt.THREADS / 2;
+
+    while (stride > 0) : (stride /= 2) {
+        if (tid < stride) {
+            const a = shared_tile.load(tid);
+            const b = shared_tile.load(tid + stride);
+            shared_tile.store(tid, a + b);
+        }
+        zt.blockSync(); 
+    }
+
+    if (tid == 0) z[0] = shared_tile.load(tid);
+}
+
+
+
