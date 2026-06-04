@@ -98,6 +98,9 @@ pub fn build(b: *std.Build) void {
     const mod_tests = b.addTest(.{
         .root_module = mod,
     });
+    mod_tests.root_module.linkSystemLibrary("cuda", .{});
+    mod_tests.root_module.link_libc = true;
+    mod_tests.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
     const run_mod_tests = b.addRunArtifact(mod_tests);
 
     const gpu_tests_mod = b.createModule(.{
@@ -116,6 +119,9 @@ pub fn build(b: *std.Build) void {
     const gpu_tests = b.addTest(.{
         .root_module = gpu_tests_mod,
     });
+    gpu_tests.root_module.linkSystemLibrary("cuda", .{});
+    gpu_tests.root_module.link_libc = true;
+    gpu_tests.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
     const run_gpu_tests = b.addRunArtifact(gpu_tests);
 
     const test_step = b.step("test", "Run tests");
