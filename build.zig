@@ -30,6 +30,13 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const single_file_example_ptx = buildPtx(b, .{
+        .kernel_source = b.path("examples/single_file.zig"),
+        .gpu_arch = gpu_arch,
+        .llc_path = llc_path,
+        .optimize = optimize,
+    });
+
     // ------------------------------------------------------------------
     // CUDA header translation (host side) — unchanged from before.
     // ------------------------------------------------------------------
@@ -124,12 +131,37 @@ pub fn build(b: *std.Build) void {
     gpu_tests.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
     const run_gpu_tests = b.addRunArtifact(gpu_tests);
 
+    const single_file_example_mod = b.createModule(.{
+        .root_source_file = b.path("examples/single_file.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "zigton", .module = mod },
+            .{ .name = "cuda", .module = cuda_module },
+        },
+    });
+    single_file_example_mod.addAnonymousImport("single_file_example_ptx", .{
+        .root_source_file = single_file_example_ptx,
+    });
+
+    const single_file_example_tests = b.addTest(.{
+        .root_module = single_file_example_mod,
+    });
+    single_file_example_tests.root_module.linkSystemLibrary("cuda", .{});
+    single_file_example_tests.root_module.link_libc = true;
+    single_file_example_tests.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
+    const run_single_file_example_tests = b.addRunArtifact(single_file_example_tests);
+
+    const single_file_example_step = b.step("single-file-example", "Run same-file host/device example");
+    single_file_example_step.dependOn(&run_single_file_example_tests.step);
+
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_gpu_tests.step);
     if (b.args) |args| {
         run_mod_tests.addArgs(args);
         run_gpu_tests.addArgs(args);
+        run_single_file_example_tests.addArgs(args);
     }
 }
 
