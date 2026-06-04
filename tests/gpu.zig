@@ -417,7 +417,7 @@ test "reduceSumF32 host helper" {
     var module = try zt.Module.loadData(ptx);
     defer module.deinit();
 
-    const block_sum: zt.Kernel = try module.kernel("block_sum");
+    const block_sum_reducer: zt.Reducer = try zt.Reducer.init(module);
 
     var da = try zt.DeviceBuffer(f32).init(N);
     defer da.deinit();
@@ -429,7 +429,7 @@ test "reduceSumF32 host helper" {
 
     try std.testing.expectEqual(
         expected,
-        try zt.reduce.reduceSumF32(&ctx, block_sum, da, N),
+        try block_sum_reducer.sumF32(&ctx, da, N),
     );
 }
 
@@ -442,7 +442,8 @@ test "reduceSumF32 edge sizes" {
     var module = try zt.Module.loadData(ptx);
     defer module.deinit();
 
-    const block_sum: zt.Kernel = try module.kernel("block_sum");
+    const block_sum_reducer: zt.Reducer = try zt.Reducer.init(module);
+    // const block_sum: zt.Kernel = try module.kernel("block_sum");
 
     const sizes = [_]u32{ 0, 1, zt.THREADS - 1, zt.THREADS, zt.TILE - 1, zt.TILE, zt.TILE + 1, zt.TILE * zt.TILE + 17 };
 
@@ -465,7 +466,7 @@ test "reduceSumF32 edge sizes" {
 
         try std.testing.expectEqual(
             expected,
-            try zt.reduce.reduceSumF32(&ctx, block_sum, dinput, size),
+            try block_sum_reducer.sumF32(&ctx, dinput, size),
         );
     }
 }

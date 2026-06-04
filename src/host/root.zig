@@ -18,4 +18,4 @@ pub const utils = @import("utils.zig");
 pub const check = @import("utils.zig").check;
 pub const errorString = @import("utils.zig").errorString;
 
-pub const reduce = @import("reduce.zig");
+pub const Reducer = @import("reduce.zig").Reducer;

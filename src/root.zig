@@ -20,7 +20,7 @@ pub const utils = host.utils;
 pub const check = host.check;
 pub const errorString = host.errorString;
 
-pub const reduce = host.reduce;
+pub const Reducer = host.Reducer;
 
 pub const THREADS = @import("device/config.zig").THREADS;
 pub const EPT = @import("device/config.zig").EPT;
