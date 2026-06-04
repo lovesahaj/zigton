@@ -1,3 +1,7 @@
+pub const target = @import("zigton_target");
+pub const is_device = target.is_device;
+pub const kernel_callconv = target.kernel_callconv;
+
 pub const THREADS = @import("config.zig").THREADS;
 pub const EPT = @import("config.zig").EPT;
 pub const TILE = @import("config.zig").TILE;

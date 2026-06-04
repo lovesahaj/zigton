@@ -183,10 +183,22 @@ fn buildPtx(b: *std.Build, opts: PtxOptions) std.Build.LazyPath {
         .os_tag = .cuda,
     });
 
+    const target_mod = b.createModule(.{
+        .root_source_file = b.path("src/target.zig"),
+        .target = nvptx_target,
+        .optimize = .ReleaseSmall,
+    });
+
     const device_mod = b.createModule(.{
         .root_source_file = b.path("src/device/root.zig"),
         .target = nvptx_target,
         .optimize = .ReleaseSmall,
+        .imports = &.{
+            .{
+                .name = "zigton_target",
+                .module = target_mod,
+            },
+        },
     });
 
     // The kernel is its own module/object, cross-compiled to nvptx64.

@@ -1,3 +1,7 @@
+pub const target = @import("target.zig");
+pub const is_device = target.is_device;
+pub const kernel_callconv = target.kernel_callconv;
+
 const host = @import("host/root.zig");
 
 pub const Context = host.Context;
