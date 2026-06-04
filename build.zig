@@ -12,26 +12,50 @@ const SameFileTestOptions = struct {
     cuda_prefix: []const u8,
 };
 
-fn addSameFileTest(b: *std.Build, opts: SameFileTestOptions) *std.Build.Step.Run {
-    const test_mod = b.createModule(
-        .{
-            .root_source_file = opts.source,
-            .target = opts.target,
-            .optimize = opts.optimize,
-            .imports = &.{
-                .{ .name = "zigton", .module = opts.zigton_mod },
-                .{ .name = "cuda", .module = opts.cuda_mod },
-            },
-        },
-    );
+const HostModuleOptions = struct {
+    source: std.Build.LazyPath,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    zigton_mod: *std.Build.Module,
+    cuda_mod: *std.Build.Module,
+};
 
-    test_mod.addAnonymousImport(opts.ptx_import_name, .{ .root_source_file = opts.ptx });
-    const tests = b.addTest(.{ .root_module = test_mod });
-    tests.root_module.linkSystemLibrary("cuda", .{});
-    tests.root_module.link_libc = true;
-    tests.root_module.addLibraryPath(.{
-        .cwd_relative = b.fmt("{s}/lib64", .{opts.cuda_prefix}),
+fn createHostModule(b: *std.Build, opts: HostModuleOptions) *std.Build.Module {
+    return b.createModule(.{
+        .root_source_file = opts.source,
+        .target = opts.target,
+        .optimize = opts.optimize,
+        .imports = &.{
+            .{ .name = "zigton", .module = opts.zigton_mod },
+            .{ .name = "cuda", .module = opts.cuda_mod },
+        },
     });
+}
+
+fn addPtxImport(module: *std.Build.Module, name: []const u8, ptx: std.Build.LazyPath) void {
+    module.addAnonymousImport(name, .{ .root_source_file = ptx });
+}
+
+fn linkCuda(b: *std.Build, module: *std.Build.Module, cuda_prefix: []const u8) void {
+    module.linkSystemLibrary("cuda", .{});
+    module.link_libc = true;
+    module.addLibraryPath(.{
+        .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}),
+    });
+}
+
+fn addSameFileTest(b: *std.Build, opts: SameFileTestOptions) *std.Build.Step.Run {
+    const test_mod = createHostModule(b, .{
+        .source = opts.source,
+        .target = opts.target,
+        .optimize = opts.optimize,
+        .zigton_mod = opts.zigton_mod,
+        .cuda_mod = opts.cuda_mod,
+    });
+
+    addPtxImport(test_mod, opts.ptx_import_name, opts.ptx);
+    const tests = b.addTest(.{ .root_module = test_mod });
+    linkCuda(b, tests.root_module, opts.cuda_prefix);
 
     return b.addRunArtifact(tests);
 }
@@ -65,7 +89,7 @@ pub fn build(b: *std.Build) void {
         .llc_path = llc_path,
         .optimize = optimize,
     });
-    
+
     const reduce_ptx = buildPtx(b, .{
         .kernel_source = b.path("kernels/reduce.zig"),
         .gpu_arch = gpu_arch,
@@ -107,14 +131,12 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "zigton",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
+        .root_module = createHostModule(b, .{
+            .source = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{
-                .{ .name = "zigton", .module = mod },
-                .{ .name = "cuda", .module = cuda_mod },
-            },
+            .zigton_mod = mod,
+            .cuda_mod = cuda_mod,
         }),
     });
 
@@ -122,26 +144,19 @@ pub fn build(b: *std.Build) void {
     //     const ptx = @embedFile("base_ptx");
     // This replaces the fragile "copy the .ptx into src/" dance: the PTX is now
     // a tracked build artifact and the exe depends on it through the graph.
-    exe.root_module.addAnonymousImport("base_ptx", .{
-        .root_source_file = base_ptx,
-    });
-
-    exe.root_module.addAnonymousImport("reduce_ptx", .{
-        .root_source_file = reduce_ptx,
-    });
-
-    exe.root_module.linkSystemLibrary("cuda", .{});
-    exe.root_module.link_libc = true;
-    exe.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
+    addPtxImport(exe.root_module, "base_ptx", base_ptx);
+    addPtxImport(exe.root_module, "reduce_ptx", reduce_ptx);
+    linkCuda(b, exe.root_module, cuda_prefix);
 
     b.installArtifact(exe);
 
     // Convenience: `zig build ptx` to produce just the PTX without building the
     // host exe — handy while iterating on the kernel.
     const ptx_step = b.step("ptx", "Build the GPU kernel PTX only");
-    const install_ptx = b.addInstallFile(base_ptx, "gpu.ptx");
-
-    ptx_step.dependOn(&install_ptx.step);
+    const install_base_ptx = b.addInstallFile(base_ptx, "base.ptx");
+    const install_reduce_ptx = b.addInstallFile(reduce_ptx, "reduce.ptx");
+    ptx_step.dependOn(&install_base_ptx.step);
+    ptx_step.dependOn(&install_reduce_ptx.step);
 
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);
@@ -154,37 +169,25 @@ pub fn build(b: *std.Build) void {
     const mod_tests = b.addTest(.{
         .root_module = mod,
     });
-    mod_tests.root_module.linkSystemLibrary("cuda", .{});
-    mod_tests.root_module.link_libc = true;
-    mod_tests.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
+    linkCuda(b, mod_tests.root_module, cuda_prefix);
     const run_mod_tests = b.addRunArtifact(mod_tests);
 
-    const gpu_tests_mod = b.createModule(.{
-        .root_source_file = b.path("tests/gpu.zig"),
+    const gpu_tests_mod = createHostModule(b, .{
+        .source = b.path("tests/gpu.zig"),
         .target = target,
         .optimize = optimize,
-        .imports = &.{
-            .{ .name = "zigton", .module = mod },
-            .{ .name = "cuda", .module = cuda_mod },
-        },
+        .zigton_mod = mod,
+        .cuda_mod = cuda_mod,
     });
 
-    gpu_tests_mod.addAnonymousImport("base_ptx", .{
-        .root_source_file = base_ptx,
-    });
-
-    gpu_tests_mod.addAnonymousImport("reduce_ptx", .{
-        .root_source_file = reduce_ptx,
-    });
+    addPtxImport(gpu_tests_mod, "base_ptx", base_ptx);
+    addPtxImport(gpu_tests_mod, "reduce_ptx", reduce_ptx);
 
     const gpu_tests = b.addTest(.{
         .root_module = gpu_tests_mod,
     });
-    gpu_tests.root_module.linkSystemLibrary("cuda", .{});
-    gpu_tests.root_module.link_libc = true;
-    gpu_tests.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
+    linkCuda(b, gpu_tests.root_module, cuda_prefix);
     const run_gpu_tests = b.addRunArtifact(gpu_tests);
-
 
     const run_single_file_example_tests = addSameFileTest(b, .{
         .name = "single-file-example",
