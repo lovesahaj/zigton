@@ -121,6 +121,43 @@ zig build test \
   -Dcuda-prefix=/path/to/cuda
 ```
 
+Run the same-file host/device experiment:
+
+```sh
+zig build single-file-example \
+  -Dllc-path=/path/to/llc \
+  -Dgpu-arch=sm_89 \
+  -Dcuda-prefix=/path/to/cuda
+```
+
+## Same-File Host/Device Experiment
+
+`examples/single_file.zig` is compiled twice:
+
+```text
+examples/single_file.zig -> nvptx64-cuda -> PTX
+examples/single_file.zig -> native host test -> embeds PTX
+```
+
+This lets one Zig file contain both a kernel and the host-side launch test. Kernel
+declarations use shared target helpers:
+
+```zig
+const builtin = @import("builtin");
+const zt = if (builtin.target.cpu.arch == .nvptx64)
+    @import("zigton_device")
+else
+    @import("zigton");
+
+pub export fn single_file_fill(...) callconv(zt.kernel_callconv) void {
+    if (comptime !zt.is_device) return;
+    // device code
+}
+```
+
+This is not compiler-level offload. It is build-level double compilation plus
+explicit PTX embedding.
+
 ## Notes
 
 Zig currently emits NVPTX kernels through an alias pattern that `llc` rejects:
