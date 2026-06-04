@@ -2,7 +2,8 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const is_device = builtin.target.cpu.arch == .nvptx64;
-const kernel_callconv = if (is_device) .kernel else .c;
+// const kernel_callconv = if (is_device) .kernel else .c;
+const kernel_callconv: std.builtin.CallingConvention = if (is_device) .kernel else .c;
 
 const zt_host = if (is_device) struct {} else @import("zigton");
 const zt_device = if (is_device) @import("zigton_device") else struct {

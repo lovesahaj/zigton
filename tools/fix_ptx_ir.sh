@@ -68,8 +68,12 @@ for q in "${qualified[@]}"; do
     q_esc="$(printf '%s' "$q" | sed -E 's/[.$]/\\&/g')"
     # Replace both @"gpu.vector_add" and @gpu.vector_add with @vector_add.
     sed -i -E "s/@\"${q_esc}\"/@${bare}/g; s/@${q_esc}/@${bare}/g" "$out"
-    echo "fix_ptx_ir: $q -> $bare" >&2
+    if [[ "${FIX_PTX_IR_VERBOSE:-}" == "1" ]]; then
+        echo "fix_ptx_ir: $q -> $bare" >&2
+    fi
 done
 
-echo "fix_ptx_ir: wrote $out" >&2
+if [[ "${FIX_PTX_IR_VERBOSE:-}" == "1" ]]; then
+    echo "fix_ptx_ir: wrote $out" >&2
+fi
 exit 0
