@@ -1,5 +1,41 @@
 const std = @import("std");
 
+const SameFileTestOptions = struct {
+    name: []const u8,
+    source: std.Build.LazyPath,
+    ptx_import_name: []const u8,
+    ptx: std.Build.LazyPath,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    zigton_mod: *std.Build.Module,
+    cuda_mod: *std.Build.Module,
+    cuda_prefix: []const u8,
+};
+
+fn addSameFileTest(b: *std.Build, opts: SameFileTestOptions) *std.Build.Step.Run {
+    const test_mod = b.createModule(
+        .{
+            .root_source_file = opts.source,
+            .target = opts.target,
+            .optimize = opts.optimize,
+            .imports = &.{
+                .{ .name = "zigton", .module = opts.zigton_mod },
+                .{ .name = "cuda", .module = opts.cuda_mod },
+            },
+        },
+    );
+
+    test_mod.addAnonymousImport(opts.ptx_import_name, .{ .root_source_file = opts.ptx });
+    const tests = b.addTest(.{ .root_module = test_mod });
+    tests.root_module.linkSystemLibrary("cuda", .{});
+    tests.root_module.link_libc = true;
+    tests.root_module.addLibraryPath(.{
+        .cwd_relative = b.fmt("{s}/lib64", .{opts.cuda_prefix}),
+    });
+
+    return b.addRunArtifact(tests);
+}
+
 // Although this function looks imperative, it does not perform the build
 // directly and instead it mutates the build graph (`b`) that will be then
 // executed by an external runner. The functions in `std.Build` implement a DSL
@@ -48,7 +84,7 @@ pub fn build(b: *std.Build) void {
     });
     c_translation.addIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{cuda_prefix}) });
 
-    const cuda_module = b.createModule(.{
+    const cuda_mod = b.createModule(.{
         .root_source_file = c_translation.getOutput(),
     });
 
@@ -57,7 +93,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .imports = &.{
-            .{ .name = "cuda", .module = cuda_module },
+            .{ .name = "cuda", .module = cuda_mod },
         },
     });
 
@@ -69,7 +105,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "zigton", .module = mod },
-                .{ .name = "cuda", .module = cuda_module },
+                .{ .name = "cuda", .module = cuda_mod },
             },
         }),
     });
@@ -116,7 +152,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .imports = &.{
             .{ .name = "zigton", .module = mod },
-            .{ .name = "cuda", .module = cuda_module },
+            .{ .name = "cuda", .module = cuda_mod },
         },
     });
     gpu_tests_mod.addAnonymousImport("gpu_ptx", .{
@@ -131,26 +167,18 @@ pub fn build(b: *std.Build) void {
     gpu_tests.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
     const run_gpu_tests = b.addRunArtifact(gpu_tests);
 
-    const single_file_example_mod = b.createModule(.{
-        .root_source_file = b.path("examples/single_file.zig"),
+
+    const run_single_file_example_tests = addSameFileTest(b, .{
+        .name = "single-file-example",
+        .source = b.path("examples/single_file.zig"),
+        .ptx_import_name = "single_file_example_ptx",
+        .ptx = single_file_example_ptx,
         .target = target,
         .optimize = optimize,
-        .imports = &.{
-            .{ .name = "zigton", .module = mod },
-            .{ .name = "cuda", .module = cuda_module },
-        },
+        .zigton_mod = mod,
+        .cuda_mod = cuda_mod,
+        .cuda_prefix = cuda_prefix,
     });
-    single_file_example_mod.addAnonymousImport("single_file_example_ptx", .{
-        .root_source_file = single_file_example_ptx,
-    });
-
-    const single_file_example_tests = b.addTest(.{
-        .root_module = single_file_example_mod,
-    });
-    single_file_example_tests.root_module.linkSystemLibrary("cuda", .{});
-    single_file_example_tests.root_module.link_libc = true;
-    single_file_example_tests.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib64", .{cuda_prefix}) });
-    const run_single_file_example_tests = b.addRunArtifact(single_file_example_tests);
 
     const single_file_example_step = b.step("single-file-example", "Run same-file host/device example");
     single_file_example_step.dependOn(&run_single_file_example_tests.step);
