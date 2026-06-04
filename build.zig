@@ -3,8 +3,7 @@ const std = @import("std");
 const SameFileTestOptions = struct {
     name: []const u8,
     source: std.Build.LazyPath,
-    ptx_import_name: []const u8,
-    ptx: std.Build.LazyPath,
+    kernel: KernelFile,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     zigton_mod: *std.Build.Module,
@@ -18,6 +17,20 @@ const HostModuleOptions = struct {
     optimize: std.builtin.OptimizeMode,
     zigton_mod: *std.Build.Module,
     cuda_mod: *std.Build.Module,
+};
+
+const KernelFile = struct {
+    name: []const u8,
+    import_name: []const u8,
+    ptx: std.Build.LazyPath,
+};
+
+const KernelFileOptions = struct {
+    name: []const u8,
+    source: std.Build.LazyPath,
+    gpu_arch: []const u8,
+    llc_path: []const u8,
+    optimize: std.builtin.OptimizeMode,
 };
 
 fn createHostModule(b: *std.Build, opts: HostModuleOptions) *std.Build.Module {
@@ -53,7 +66,7 @@ fn addSameFileTest(b: *std.Build, opts: SameFileTestOptions) *std.Build.Step.Run
         .cuda_mod = opts.cuda_mod,
     });
 
-    addPtxImport(test_mod, opts.ptx_import_name, opts.ptx);
+    addPtxImport(test_mod, opts.kernel.import_name, opts.kernel.ptx);
     const tests = b.addTest(.{ .root_module = test_mod });
     linkCuda(b, tests.root_module, opts.cuda_prefix);
 
@@ -83,22 +96,25 @@ pub fn build(b: *std.Build) void {
     // ------------------------------------------------------------------
     // GPU kernel pipeline:  gpu.zig -> LLVM IR -> (rewrite) -> PTX
     // ------------------------------------------------------------------
-    const base_ptx = buildPtx(b, .{
-        .kernel_source = b.path("kernels/gpu.zig"),
+    const base_kernel = addKernelFile(b, .{
+        .name = "base",
+        .source = b.path("kernels/gpu.zig"),
         .gpu_arch = gpu_arch,
         .llc_path = llc_path,
         .optimize = optimize,
     });
 
-    const reduce_ptx = buildPtx(b, .{
-        .kernel_source = b.path("kernels/reduce.zig"),
+    const reduce_kernel = addKernelFile(b, .{
+        .name = "reduce",
+        .source = b.path("kernels/reduce.zig"),
         .gpu_arch = gpu_arch,
         .llc_path = llc_path,
         .optimize = optimize,
     });
 
-    const single_file_example_ptx = buildPtx(b, .{
-        .kernel_source = b.path("examples/single_file.zig"),
+    const single_file_example_kernel = addKernelFile(b, .{
+        .name = "single_file_example",
+        .source = b.path("examples/single_file.zig"),
         .gpu_arch = gpu_arch,
         .llc_path = llc_path,
         .optimize = optimize,
@@ -144,8 +160,8 @@ pub fn build(b: *std.Build) void {
     //     const ptx = @embedFile("base_ptx");
     // This replaces the fragile "copy the .ptx into src/" dance: the PTX is now
     // a tracked build artifact and the exe depends on it through the graph.
-    addPtxImport(exe.root_module, "base_ptx", base_ptx);
-    addPtxImport(exe.root_module, "reduce_ptx", reduce_ptx);
+    addPtxImport(exe.root_module, base_kernel.import_name, base_kernel.ptx);
+    addPtxImport(exe.root_module, reduce_kernel.import_name, reduce_kernel.ptx);
     linkCuda(b, exe.root_module, cuda_prefix);
 
     b.installArtifact(exe);
@@ -153,8 +169,8 @@ pub fn build(b: *std.Build) void {
     // Convenience: `zig build ptx` to produce just the PTX without building the
     // host exe — handy while iterating on the kernel.
     const ptx_step = b.step("ptx", "Build the GPU kernel PTX only");
-    const install_base_ptx = b.addInstallFile(base_ptx, "base.ptx");
-    const install_reduce_ptx = b.addInstallFile(reduce_ptx, "reduce.ptx");
+    const install_base_ptx = b.addInstallFile(base_kernel.ptx, "base.ptx");
+    const install_reduce_ptx = b.addInstallFile(reduce_kernel.ptx, "reduce.ptx");
     ptx_step.dependOn(&install_base_ptx.step);
     ptx_step.dependOn(&install_reduce_ptx.step);
 
@@ -180,8 +196,8 @@ pub fn build(b: *std.Build) void {
         .cuda_mod = cuda_mod,
     });
 
-    addPtxImport(gpu_tests_mod, "base_ptx", base_ptx);
-    addPtxImport(gpu_tests_mod, "reduce_ptx", reduce_ptx);
+    addPtxImport(gpu_tests_mod, base_kernel.import_name, base_kernel.ptx);
+    addPtxImport(gpu_tests_mod, reduce_kernel.import_name, reduce_kernel.ptx);
 
     const gpu_tests = b.addTest(.{
         .root_module = gpu_tests_mod,
@@ -192,8 +208,7 @@ pub fn build(b: *std.Build) void {
     const run_single_file_example_tests = addSameFileTest(b, .{
         .name = "single-file-example",
         .source = b.path("examples/single_file.zig"),
-        .ptx_import_name = "single_file_example_ptx",
-        .ptx = single_file_example_ptx,
+        .kernel = single_file_example_kernel,
         .target = target,
         .optimize = optimize,
         .zigton_mod = mod,
@@ -214,8 +229,23 @@ pub fn build(b: *std.Build) void {
     }
 }
 
-const PtxOptions = struct {
-    kernel_source: std.Build.LazyPath,
+fn addKernelFile(b: *std.Build, opts: KernelFileOptions) KernelFile {
+    return .{
+        .name = opts.name,
+        .import_name = b.fmt("{s}_ptx", .{opts.name}),
+        .ptx = buildKernelPtx(b, .{
+            .name = opts.name,
+            .source = opts.source,
+            .gpu_arch = opts.gpu_arch,
+            .llc_path = opts.llc_path,
+            .optimize = opts.optimize,
+        }),
+    };
+}
+
+const KernelPtxOptions = struct {
+    name: []const u8,
+    source: std.Build.LazyPath,
     gpu_arch: []const u8,
     llc_path: []const u8,
     optimize: std.builtin.OptimizeMode,
@@ -226,7 +256,7 @@ const PtxOptions = struct {
 //   1. `zig build-obj -femit-llvm-ir` for the nvptx64-cuda target -> raw .ll
 //   2. tools/fix_ptx_ir.sh to collapse the NVPTX kernel alias            -> fixed .ll
 //   3. llc -mcpu=<arch> to lower the fixed IR                            -> .ptx
-fn buildPtx(b: *std.Build, opts: PtxOptions) std.Build.LazyPath {
+fn buildKernelPtx(b: *std.Build, opts: KernelPtxOptions) std.Build.LazyPath {
     const nvptx_target = b.resolveTargetQuery(.{
         .cpu_arch = .nvptx64,
         .os_tag = .cuda,
@@ -252,9 +282,9 @@ fn buildPtx(b: *std.Build, opts: PtxOptions) std.Build.LazyPath {
 
     // The kernel is its own module/object, cross-compiled to nvptx64.
     const kernel_obj = b.addObject(.{
-        .name = "gpu",
+        .name = opts.name,
         .root_module = b.createModule(.{
-            .root_source_file = opts.kernel_source,
+            .root_source_file = opts.source,
             .target = nvptx_target,
             // ReleaseSmall keeps the kernel lean; the alias problem lives in
             // emission, not optimization, so the opt level is free to choose.
@@ -275,14 +305,14 @@ fn buildPtx(b: *std.Build, opts: PtxOptions) std.Build.LazyPath {
     const fix = b.addSystemCommand(&.{"bash"});
     fix.addFileArg(b.path("tools/fix_ptx_ir.sh"));
     fix.addFileArg(raw_ll);
-    const fixed_ll = fix.addOutputFileArg("gpu.fixed.ll");
+    const fixed_ll = fix.addOutputFileArg(b.fmt("{s}.fixed.ll", .{opts.name}));
 
     // Stage 3: lower the fixed IR to PTX with a modern llc.
     const llc = b.addSystemCommand(&.{opts.llc_path});
     llc.addArg(b.fmt("-mcpu={s}", .{opts.gpu_arch}));
     llc.addFileArg(fixed_ll);
     llc.addArg("-o");
-    const ptx = llc.addOutputFileArg("gpu.ptx");
+    const ptx = llc.addOutputFileArg(b.fmt("{s}.ptx", .{opts.name}));
 
     return ptx;
 }

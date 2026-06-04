@@ -2,49 +2,58 @@
 
 Tile-based GPU kernel experiments in Zig.
 
-`zigton` is exploring a Triton-like programming model in plain Zig: one GPU block
-owns one tile, user code performs tile operations, and the device API hides the
-thread/lane mapping.
+`zigton` explores a Triton-like programming model in plain Zig: one GPU block
+owns one tile, kernel code performs tile operations, and the device API maps
+those operations onto GPU threads.
 
 Status: early prototype. NVIDIA/NVPTX only.
 
-## Current Milestone
+## Current State
 
-The project can now compile Zig kernels to PTX and load them from a Zig host via
-the CUDA Driver API.
+The project can compile Zig kernels to PTX, embed that PTX into a Zig host
+binary, load it through the CUDA Driver API, and launch kernels from Zig.
 
-Current build path:
+Current kernel build path:
 
 ```text
-kernels/gpu.zig -> LLVM IR -> fix alias -> llc -> PTX -> @embedFile -> host
+kernel .zig file -> LLVM IR -> fix alias -> llc -> PTX -> @embedFile -> host
 ```
 
-Phase 2 shared-memory and reduction prototype exists. Register tiles are real
-`@Vector` values, and each thread owns `EPT` (elements-per-thread) lanes via a
-strided, coalesced mapping:
+Kernel files are now modular. Each kernel source is compiled into its own PTX
+module, avoiding NVPTX object-linking complexity for now.
 
-```zig
-const tile = zt.load(f32, zt.EPT, x, n);
-const out = tile.addScalar(value);
-zt.store(z, out, n);
-```
+Phase 2 shared-memory and reduction primitives exist. Phase 3 is focused on
+host ergonomics, modular kernel files, same-file host/device experiments, and
+broader reduction APIs.
 
-Implemented device-side pieces:
+## Implemented Pieces
+
+Device-side API:
 
 - `GlobalPtr(T)` / `ConstGlobalPtr(T)`
-- `RegTile(T, ept)` backed by a real `@Vector(ept, T)`
+- `RegTile(T, ept)` backed by `@Vector(ept, T)`
 - `load` / `store` with strided, coalesced indexing
 - per-element tail masking against `n`
-- multiple elements per thread (`EPT`), tile width decoupled from block size
+- multiple elements per thread via `EPT`
 - tile + scalar
 - tile + tile
 - `requireBlock` launch-geometry guard
 - `SharedTile(T, n)` backed by static `addrspace(.shared)` storage
 - `blockSync()` barrier wrapper lowering to `bar.sync 0`
 - device-side `blockReduceSum`
-- host-side `reduceSumF32`
+- shared target helpers: `is_device`, `kernel_callconv`
 
-Validated kernels:
+Host-side API:
+
+- `Context`
+- `DeviceBuffer(T)`
+- `Module`
+- `Kernel`
+- `LaunchConfig`
+- `kernelArgs`
+- `Reducer` owning reduction kernel lookup
+
+Validated kernels/examples:
 
 - `vector_add`
 - `fill`
@@ -53,27 +62,33 @@ Validated kernels:
 - `add_tile`
 - `shared_copy`
 - `block_sum`
+- `examples/single_file.zig` same-file host/device launch
 
 ## Layout
 
 ```text
-src/root.zig           Public host API entrypoint
-src/main.zig           Minimal executable entrypoint
-src/host/root.zig      Host CUDA API aggregate
-src/host/context.zig   CUDA context wrapper
-src/host/buffer.zig    DeviceBuffer(T)
-src/host/module.zig    PTX module loading
-src/host/kernel.zig    Kernel wrapper
-src/host/launch.zig    CUDA launch config
-src/host/args.zig      Kernel argument packing
-src/host/utils.zig     Host math/CUDA helpers
-src/device/root.zig    Device/kernel API aggregate
-src/device/regtile.zig Register tile API
+src/root.zig              Public host API entrypoint
+src/target.zig            Shared host/device target helpers
+src/main.zig              Minimal executable entrypoint
+src/host/root.zig         Host CUDA API aggregate
+src/host/context.zig      CUDA context wrapper
+src/host/buffer.zig       DeviceBuffer(T)
+src/host/module.zig       PTX module loading
+src/host/kernel.zig       Kernel wrapper
+src/host/launch.zig       CUDA launch config
+src/host/args.zig         Kernel argument packing
+src/host/reduce.zig       Host reduction orchestration
+src/host/utils.zig        Host math/CUDA helpers
+src/device/root.zig       Device/kernel API aggregate
+src/device/regtile.zig    Register tile API
 src/device/sharedtile.zig Shared tile API
-src/device/config.zig  Shared THREADS / EPT / TILE constants
-kernels/gpu.zig        Prototype kernels
-tests/gpu.zig          GPU integration tests
-tools/fix_ptx_ir.sh LLVM IR alias rewrite for NVPTX
+src/device/reduce.zig     Device block reductions
+src/device/config.zig     Shared THREADS / EPT / TILE constants
+kernels/gpu.zig           Base prototype kernels
+kernels/reduce.zig        Reduction kernels
+examples/single_file.zig  Same-file host/device experiment
+tests/gpu.zig             GPU integration tests
+tools/fix_ptx_ir.sh       LLVM IR alias rewrite for NVPTX
 ```
 
 Host code imports:
@@ -105,7 +120,7 @@ zig build ptx \
   -Dgpu-arch=sm_89
 ```
 
-Run app/tests depending on current entrypoint setup:
+Run the app:
 
 ```sh
 zig build run \
@@ -113,6 +128,8 @@ zig build run \
   -Dgpu-arch=sm_89 \
   -Dcuda-prefix=/path/to/cuda
 ```
+
+Run tests:
 
 ```sh
 zig build test \
@@ -130,6 +147,50 @@ zig build single-file-example \
   -Dcuda-prefix=/path/to/cuda
 ```
 
+## Adding Kernel Files
+
+Kernel sources are registered in `build.zig` with `addKernelFile`:
+
+```zig
+const reduce_kernel = addKernelFile(b, .{
+    .name = "reduce",
+    .source = b.path("kernels/reduce.zig"),
+    .gpu_arch = gpu_arch,
+    .llc_path = llc_path,
+    .optimize = optimize,
+});
+```
+
+The helper compiles that source to PTX and returns a `KernelFile`:
+
+```zig
+.{
+    .name = "reduce",
+    .import_name = "reduce_ptx",
+    .ptx = ...,
+}
+```
+
+Embed it into a host module with:
+
+```zig
+addPtxImport(gpu_tests_mod, reduce_kernel.import_name, reduce_kernel.ptx);
+```
+
+Then host code can load it normally:
+
+```zig
+const reduce_ptx: [:0]const u8 = @embedFile("reduce_ptx");
+
+var module = try zt.Module.loadData(reduce_ptx);
+defer module.deinit();
+
+const block_sum = try module.kernel("block_sum");
+```
+
+Current model: one PTX module per kernel file. This keeps kernel files modular
+without requiring NVPTX object linking.
+
 ## Same-File Host/Device Experiment
 
 `examples/single_file.zig` is compiled twice:
@@ -139,8 +200,9 @@ examples/single_file.zig -> nvptx64-cuda -> PTX
 examples/single_file.zig -> native host test -> embeds PTX
 ```
 
-This lets one Zig file contain both a kernel and the host-side launch test. Kernel
-declarations use shared target helpers:
+This lets one Zig file contain both a kernel and its host-side launch test.
+
+The pattern uses shared target helpers:
 
 ```zig
 const builtin = @import("builtin");
@@ -167,19 +229,12 @@ Zig currently emits NVPTX kernels through an alias pattern that `llc` rejects:
 define private ptx_kernel void @gpu.vector_add(...) { ... }
 ```
 
-`tools/fix_ptx_ir.sh` rewrites the IR so kernel definitions have public bare names
-before `llc` lowers them to PTX.
+`tools/fix_ptx_ir.sh` rewrites the IR so kernel definitions have public bare
+names before `llc` lowers them to PTX.
 
-## Roadmap
-
-Current next step: Phase 3 host ergonomics and broader reduction APIs.
-
-Planned next pieces:
-
-- cleaner public reduction API that owns kernel lookup
-- reusable scratch-buffer reduction path
-- broader reduction operations beyond f32 sum
-- stronger PTX audit tooling for shared memory/barrier checks
+Shared-memory kernels must keep barriers converged. A block barrier must be
+reached by every thread in a warp at the same program point; guarding work is
+safe, guarding the barrier is not.
 
 ## Writeups
 
