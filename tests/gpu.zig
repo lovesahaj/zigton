@@ -422,6 +422,9 @@ test "reduceSumF32 host helper" {
     var da = try zt.DeviceBuffer(f32).init(N);
     defer da.deinit();
 
+    var db = try zt.DeviceBuffer(f32).init(N);
+    defer db.deinit();
+
     try da.copyFromHost(a);
 
     var expected: f32 = 0.0;
@@ -429,7 +432,7 @@ test "reduceSumF32 host helper" {
 
     try std.testing.expectApproxEqRel(
         expected,
-        try block_sum_reducer.sumF32(&ctx, da, N),
+        try block_sum_reducer.sumF32(&ctx, da, db, N),
         1e-4,
     );
 }
@@ -446,7 +449,16 @@ test "reduceSumF32 edge sizes" {
     const block_sum_reducer: zt.Reducer = try zt.Reducer.init(module);
     // const block_sum: zt.Kernel = try module.kernel("block_sum");
 
-    const sizes = [_]u32{ 0, 1, zt.THREADS - 1, zt.THREADS, zt.TILE - 1, zt.TILE, zt.TILE + 1, zt.TILE * zt.TILE + 17 };
+    const sizes = [_]u32{
+        0,
+        1,
+        zt.THREADS - 1,
+        zt.THREADS,
+        zt.TILE - 1,
+        zt.TILE,
+        zt.TILE + 1,
+        zt.TILE * zt.TILE + 17,
+    };
 
     for (sizes) |size| {
         const alloc_len: u32 = @max(size, 1);
@@ -463,11 +475,14 @@ test "reduceSumF32 edge sizes" {
         var dinput = try zt.DeviceBuffer(f32).init(alloc_len);
         defer dinput.deinit();
 
+        var dscratch = try zt.DeviceBuffer(f32).init(alloc_len);
+        defer dscratch.deinit();
+
         try dinput.copyFromHost(input);
 
         try std.testing.expectApproxEqRel(
             expected,
-            try block_sum_reducer.sumF32(&ctx, dinput, size),
+            try block_sum_reducer.sumF32(&ctx, dinput, dscratch, size),
             1e-4,
         );
     }

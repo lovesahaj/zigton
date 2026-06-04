@@ -22,15 +22,11 @@ pub const Reducer = struct {
     pub fn sumF32(
         self: Self,
         ctx: *Context,
-        input: DeviceBuffer(f32),
+        da: DeviceBuffer(f32),
+        db: DeviceBuffer(f32),
         n: u32,
     ) !f32 {
         if (n == 0) return 0.0;
-
-        const da = input;
-
-        var db = try DeviceBuffer(f32).init(n);
-        defer db.deinit();
 
         var current_count = n;
         var current_is_a = true;
