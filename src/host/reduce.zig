@@ -4,7 +4,7 @@ const DeviceBuffer = @import("buffer.zig").DeviceBuffer;
 const cdiv = @import("utils.zig").cdiv;
 const kernelArgs = @import("args.zig").kernelArgs;
 
-pub const Module = @import("module.zig").Module;
+const Module = @import("module.zig").Module;
 const config = @import("../device/config.zig");
 
 pub const Reducer = struct {

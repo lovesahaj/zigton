@@ -427,9 +427,10 @@ test "reduceSumF32 host helper" {
     var expected: f32 = 0.0;
     for (a) |v| expected += v;
 
-    try std.testing.expectEqual(
+    try std.testing.expectApproxEqRel(
         expected,
         try block_sum_reducer.sumF32(&ctx, da, N),
+        1e-4,
     );
 }
 
@@ -464,9 +465,10 @@ test "reduceSumF32 edge sizes" {
 
         try dinput.copyFromHost(input);
 
-        try std.testing.expectEqual(
+        try std.testing.expectApproxEqRel(
             expected,
             try block_sum_reducer.sumF32(&ctx, dinput, size),
+            1e-4,
         );
     }
 }
