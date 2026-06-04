@@ -5,34 +5,25 @@ const is_device = builtin.target.cpu.arch == .nvptx64;
 // const kernel_callconv = if (is_device) .kernel else .c;
 const kernel_callconv: std.builtin.CallingConvention = if (is_device) .kernel else .c;
 
-const zt_host = if (is_device) struct {} else @import("zigton");
-const zt_device = if (is_device) @import("zigton_device") else struct {
-    pub const THREADS: u32 = 1;
-
-    pub fn GlobalPtr(comptime T: type) type {
-        return [*]T;
-    }
-
-    pub fn linearIndex() u32 {
-        return 0;
-    }
-};
+const zt = if (is_device)
+    @import("zigton_device")
+else 
+    @import("zigton");
 
 const ptx: [:0]const u8 = if (is_device) "" else @embedFile("single_file_example_ptx");
 
 pub export fn single_file_fill(
-    z: zt_device.GlobalPtr(f32),
+    z: zt.GlobalPtr(f32),
     value: f32,
     n: u32,
 ) callconv(kernel_callconv) void {
     if (comptime !is_device) return;
 
-    const i = zt_device.linearIndex();
+    const i = zt.linearIndex();
     if (i < n) z[i] = value;
 }
 
 test "single file host launches device kernel" {
-    const zt = zt_host;
     const n: u32 = 1024;
     const fill_value: f32 = 7.0;
 
