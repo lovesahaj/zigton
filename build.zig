@@ -59,8 +59,15 @@ pub fn build(b: *std.Build) void {
     // ------------------------------------------------------------------
     // GPU kernel pipeline:  gpu.zig -> LLVM IR -> (rewrite) -> PTX
     // ------------------------------------------------------------------
-    const ptx = buildPtx(b, .{
+    const base_ptx = buildPtx(b, .{
         .kernel_source = b.path("kernels/gpu.zig"),
+        .gpu_arch = gpu_arch,
+        .llc_path = llc_path,
+        .optimize = optimize,
+    });
+    
+    const reduce_ptx = buildPtx(b, .{
+        .kernel_source = b.path("kernels/reduce.zig"),
         .gpu_arch = gpu_arch,
         .llc_path = llc_path,
         .optimize = optimize,
@@ -82,6 +89,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
+
     c_translation.addIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{cuda_prefix}) });
 
     const cuda_mod = b.createModule(.{
@@ -111,11 +119,15 @@ pub fn build(b: *std.Build) void {
     });
 
     // Make the generated PTX embeddable from the host source as
-    //     const ptx = @embedFile("gpu_ptx");
+    //     const ptx = @embedFile("base_ptx");
     // This replaces the fragile "copy the .ptx into src/" dance: the PTX is now
     // a tracked build artifact and the exe depends on it through the graph.
-    exe.root_module.addAnonymousImport("gpu_ptx", .{
-        .root_source_file = ptx,
+    exe.root_module.addAnonymousImport("base_ptx", .{
+        .root_source_file = base_ptx,
+    });
+
+    exe.root_module.addAnonymousImport("reduce_ptx", .{
+        .root_source_file = reduce_ptx,
     });
 
     exe.root_module.linkSystemLibrary("cuda", .{});
@@ -127,7 +139,8 @@ pub fn build(b: *std.Build) void {
     // Convenience: `zig build ptx` to produce just the PTX without building the
     // host exe — handy while iterating on the kernel.
     const ptx_step = b.step("ptx", "Build the GPU kernel PTX only");
-    const install_ptx = b.addInstallFile(ptx, "gpu.ptx");
+    const install_ptx = b.addInstallFile(base_ptx, "gpu.ptx");
+
     ptx_step.dependOn(&install_ptx.step);
 
     const run_step = b.step("run", "Run the app");
@@ -155,8 +168,13 @@ pub fn build(b: *std.Build) void {
             .{ .name = "cuda", .module = cuda_mod },
         },
     });
-    gpu_tests_mod.addAnonymousImport("gpu_ptx", .{
-        .root_source_file = ptx,
+
+    gpu_tests_mod.addAnonymousImport("base_ptx", .{
+        .root_source_file = base_ptx,
+    });
+
+    gpu_tests_mod.addAnonymousImport("reduce_ptx", .{
+        .root_source_file = reduce_ptx,
     });
 
     const gpu_tests = b.addTest(.{

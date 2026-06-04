@@ -1,7 +1,8 @@
 const std = @import("std");
 const zt = @import("zigton");
 
-const ptx: [:0]const u8 = @embedFile("gpu_ptx");
+const base_ptx: [:0]const u8 = @embedFile("base_ptx");
+const reduce_ptx: [:0]const u8 = @embedFile("reduce_ptx");
 const n: u32 = 100000000;
 const block_x: c_uint = zt.TILE;
 
@@ -24,7 +25,7 @@ test "vector_add kernel" {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    var module = try zt.Module.loadData(ptx);
+    var module = try zt.Module.loadData(base_ptx);
     defer module.deinit();
 
     const vector_add: zt.Kernel = try module.kernel("vector_add");
@@ -70,7 +71,7 @@ test "fill kernel" {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    var module = try zt.Module.loadData(ptx);
+    var module = try zt.Module.loadData(base_ptx);
     defer module.deinit();
 
     const fill: zt.Kernel = try module.kernel("fill");
@@ -119,7 +120,7 @@ test "add_scalar kernel" {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    var module = try zt.Module.loadData(ptx);
+    var module = try zt.Module.loadData(base_ptx);
     defer module.deinit();
 
     const add_scalar: zt.Kernel = try module.kernel("add_scalar");
@@ -175,7 +176,7 @@ test "add_scalar tile" {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    var module = try zt.Module.loadData(ptx);
+    var module = try zt.Module.loadData(base_ptx);
     defer module.deinit();
 
     const add_scalar: zt.Kernel = try module.kernel("add_const_tile");
@@ -229,7 +230,7 @@ test "add_tile kernel" {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    var module = try zt.Module.loadData(ptx);
+    var module = try zt.Module.loadData(base_ptx);
     defer module.deinit();
 
     const vector_add: zt.Kernel = try module.kernel("add_tile");
@@ -283,7 +284,7 @@ test "shared_copy kernel" {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    var module = try zt.Module.loadData(ptx);
+    var module = try zt.Module.loadData(base_ptx);
     defer module.deinit();
 
     const shared_copy: zt.Kernel = try module.kernel("shared_copy");
@@ -347,7 +348,7 @@ test "sum_reduction kernel" {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    var module = try zt.Module.loadData(ptx);
+    var module = try zt.Module.loadData(reduce_ptx);
     defer module.deinit();
 
     const block_sum: zt.Kernel = try module.kernel("block_sum");
@@ -414,7 +415,7 @@ test "reduceSumF32 host helper" {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    var module = try zt.Module.loadData(ptx);
+    var module = try zt.Module.loadData(reduce_ptx);
     defer module.deinit();
 
     const block_sum_reducer: zt.Reducer = try zt.Reducer.init(module);
@@ -443,7 +444,7 @@ test "reduceSumF32 edge sizes" {
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
 
-    var module = try zt.Module.loadData(ptx);
+    var module = try zt.Module.loadData(reduce_ptx);
     defer module.deinit();
 
     const block_sum_reducer: zt.Reducer = try zt.Reducer.init(module);

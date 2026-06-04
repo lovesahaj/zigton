@@ -2,7 +2,6 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const is_device = builtin.target.cpu.arch == .nvptx64;
-// const kernel_callconv = if (is_device) .kernel else .c;
 const kernel_callconv: std.builtin.CallingConvention = if (is_device) .kernel else .c;
 
 const zt = if (is_device)
