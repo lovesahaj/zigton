@@ -4,7 +4,19 @@ const DeviceBuffer = @import("buffer.zig").DeviceBuffer;
 const cdiv = @import("utils.zig").cdiv;
 const kernelArgs = @import("args.zig").kernelArgs;
 
+
+pub const Module = @import("module.zig").Module;
 const config = @import("../device/config.zig");
+
+pub const Reducer = struct {
+    block_sum: Kernel,
+
+    const Self = @This();
+
+    pub fn init(module: Module) !void {
+
+    }
+};
 
 /// Reduces `input[0..n]` to one f32. May overwrite `input`.
 pub fn reduceSumF32(
