@@ -42,6 +42,7 @@ Device-side API:
 - `blockSync()` barrier wrapper lowering to `bar.sync 0`
 - device-side `blockReduceSum`
 - device-side `blockReduceMax`
+- device-side `blockReduce(.Add/.Max/.Min/.Mul, ...)`
 - shared target helpers: `is_device`, `kernel_callconv`
 
 Host-side API:
@@ -53,7 +54,7 @@ Host-side API:
 - `LaunchConfig`
 - `kernelArgs`
 - `Reducer` owning reduction kernel lookup
-- `Reducer.sumF32` / `Reducer.maxF32`
+- `Reducer.sumF32` / `Reducer.maxF32` / `Reducer.minF32` / `Reducer.prodF32`
 
 Validated kernels/examples:
 
@@ -65,6 +66,8 @@ Validated kernels/examples:
 - `shared_copy`
 - `block_sum`
 - `block_max`
+- `block_min`
+- `block_mul`
 - `examples/single_file.zig` same-file host/device launch
 
 ## Layout
@@ -87,7 +90,7 @@ src/device/regtile.zig    Register tile API
 src/device/sharedtile.zig Shared tile API
 src/device/reduce.zig     Device block reductions
 src/device/config.zig     Shared THREADS / EPT / TILE constants
-kernels/gpu.zig           Base prototype kernels
+kernels/base.zig          Base prototype kernels
 kernels/reduce.zig        Reduction kernels
 examples/single_file.zig  Same-file host/device experiment
 tests/base.zig            Base kernel integration tests

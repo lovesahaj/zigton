@@ -123,11 +123,11 @@ pub fn build(b: *std.Build) void {
     const gpu_arch = b.option([]const u8, "gpu-arch", "Target GPU SM arch") orelse "sm_89";
 
     // ------------------------------------------------------------------
-    // GPU kernel pipeline:  gpu.zig -> LLVM IR -> (rewrite) -> PTX
+    // GPU kernel pipeline: base.zig -> LLVM IR -> (rewrite) -> PTX
     // ------------------------------------------------------------------
     const base_kernel = addKernelFile(b, .{
         .name = "base",
-        .source = b.path("kernels/gpu.zig"),
+        .source = b.path("kernels/base.zig"),
         .gpu_arch = gpu_arch,
         .llc_path = llc_path,
         .optimize = optimize,

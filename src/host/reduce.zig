@@ -49,6 +49,28 @@ pub const Reducer = struct {
     }
 
     /// Reduces `input[0..n]` to one f32. May overwrite `input`.
+    pub fn minF32(
+        self: Self,
+        ctx: *Context,
+        da: DeviceBuffer(f32),
+        db: DeviceBuffer(f32),
+        n: u32,
+    ) !f32 {
+        return self.reduceF32(.Min, ctx, da, db, n);
+    }
+
+    /// Reduces `input[0..n]` to one f32. May overwrite `input`.
+    pub fn prodF32(
+        self: Self,
+        ctx: *Context,
+        da: DeviceBuffer(f32),
+        db: DeviceBuffer(f32),
+        n: u32,
+    ) !f32 {
+        return self.reduceF32(.Mul, ctx, da, db, n);
+    }
+
+    /// Reduces `input[0..n]` to one f32. May overwrite `input`.
     pub fn reduceF32(
         self: Self,
         comptime op: std.builtin.ReduceOp,

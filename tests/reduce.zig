@@ -142,6 +142,127 @@ test "block_max kernel" {
     }
 }
 
+test "block_min kernel" {
+    const gpa = std.testing.allocator;
+    const shared_n: u32 = zt.TILE * 2 + 7;
+
+    const grid_x: c_uint = try zt.utils.cdiv(shared_n, zt.TILE);
+
+    const x = try gpa.alloc(f32, shared_n);
+    defer gpa.free(x);
+    const z = try gpa.alloc(f32, grid_x);
+    defer gpa.free(z);
+
+    for (0..shared_n) |i| {
+        x[i] = @as(f32, @floatFromInt(i + 1));
+    }
+
+    for (0..grid_x) |i| {
+        z[i] = 0.0;
+    }
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(reduce_ptx);
+    defer module.deinit();
+
+    const block_min: zt.Kernel = try module.kernel("block_min");
+
+    var dx = try zt.DeviceBuffer(f32).init(shared_n);
+    defer dx.deinit();
+
+    var dz = try zt.DeviceBuffer(f32).init(grid_x);
+    defer dz.deinit();
+
+    try dx.copyFromHost(x);
+
+    const args = zt.kernelArgs(.{
+        dx.ptr,
+        dz.ptr,
+        shared_n,
+    });
+
+    try block_min.launch(
+        .{
+            .grid = .{ .x = grid_x },
+            .block = .{ .x = zt.THREADS },
+        },
+        args,
+    );
+
+    try ctx.sync();
+    try dz.copyToHost(z);
+
+    for (0..grid_x) |block_i| {
+        const first_idx = block_i * @as(usize, @intCast(zt.TILE));
+        const expected = @as(f32, @floatFromInt(first_idx + 1));
+        try std.testing.expectEqual(expected, z[block_i]);
+    }
+}
+
+test "block_mul kernel" {
+    const gpa = std.testing.allocator;
+    const shared_n: u32 = zt.TILE * 2 + 7;
+
+    const grid_x: c_uint = try zt.utils.cdiv(shared_n, zt.TILE);
+
+    const x = try gpa.alloc(f32, shared_n);
+    defer gpa.free(x);
+    const z = try gpa.alloc(f32, grid_x);
+    defer gpa.free(z);
+
+    for (0..shared_n) |i| {
+        const step: f32 = @floatFromInt(i % 3);
+        x[i] = 1.0 + step * 0.01;
+    }
+
+    for (0..grid_x) |i| {
+        z[i] = 0.0;
+    }
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(reduce_ptx);
+    defer module.deinit();
+
+    const block_mul: zt.Kernel = try module.kernel("block_mul");
+
+    var dx = try zt.DeviceBuffer(f32).init(shared_n);
+    defer dx.deinit();
+
+    var dz = try zt.DeviceBuffer(f32).init(grid_x);
+    defer dz.deinit();
+
+    try dx.copyFromHost(x);
+
+    const args = zt.kernelArgs(.{
+        dx.ptr,
+        dz.ptr,
+        shared_n,
+    });
+
+    try block_mul.launch(
+        .{
+            .grid = .{ .x = grid_x },
+            .block = .{ .x = zt.THREADS },
+        },
+        args,
+    );
+
+    try ctx.sync();
+    try dz.copyToHost(z);
+
+    for (0..grid_x) |block_i| {
+        const start = block_i * @as(usize, @intCast(zt.TILE));
+        const end = @min(start + @as(usize, @intCast(zt.TILE)), @as(usize, @intCast(shared_n)));
+        var expected: f32 = 1.0;
+        for (x[start..end]) |v| expected *= v;
+        try std.testing.expectApproxEqRel(expected, z[block_i], 1e-4);
+    }
+}
+
 test "sumF32 host helper" {
     const gpa = std.testing.allocator;
     const N: u32 = zt.THREADS * 4 + 7;
@@ -287,7 +408,8 @@ fn expectReduceF32(
     const actual = switch (op) {
         .Add => try reducer.sumF32(&ctx, da, db, @intCast(input.len)),
         .Max => try reducer.maxF32(&ctx, da, db, @intCast(input.len)),
-        .Min, .Mul => try reducer.reduceF32(op, &ctx, da, db, @intCast(input.len)),
+        .Min => try reducer.minF32(&ctx, da, db, @intCast(input.len)),
+        .Mul => try reducer.prodF32(&ctx, da, db, @intCast(input.len)),
         else => @compileError("unsupported reduction op"),
     };
 
