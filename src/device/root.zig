@@ -16,6 +16,7 @@ pub const utils = @import("utils.zig");
 
 pub const RegTile = @import("regtile.zig").RegTile;
 pub const load = @import("regtile.zig").load;
+pub const loadFill = @import("regtile.zig").loadFill;
 pub const store = @import("regtile.zig").store;
 
 pub const SharedTile = @import("sharedtile.zig").SharedTile;

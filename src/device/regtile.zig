@@ -58,3 +58,23 @@ pub fn store(
         if (idx < n) ptr[idx] = tile.data[k];
     }
 }
+
+pub fn loadFill(
+    comptime T: type,
+    comptime ept: u32,
+    ptr: utils.ConstGlobalPtr(T),
+    n: u32,
+    fill: T,
+) RegTile(T, ept) {
+    const stride = utils.blockSize(0);
+    const block_base = utils.blockId(0) * stride * ept; // this is owning the block
+    var lanes: [ept]T = @splat(fill);
+
+    inline for (0..ept) |k| {
+        const kk: u32 = @intCast(k);
+        const idx = block_base + utils.threadId(0) + stride * kk;
+        if (idx < n) lanes[k] = ptr[idx];
+    }
+
+    return .{ .data = lanes };
+}

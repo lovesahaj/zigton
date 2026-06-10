@@ -488,3 +488,97 @@ test "reduceSumF32 edge sizes" {
         );
     }
 }
+
+
+test "reduceMaxF32 host helper" {
+    const gpa = std.testing.allocator;
+    const N: u32 = zt.THREADS * 4 + 7;
+
+    const a = try gpa.alloc(f32, N);
+    defer gpa.free(a);
+
+    for (0..N) |i| {
+        a[i] = @floatFromInt(i);
+    }
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(reduce_ptx);
+    defer module.deinit();
+
+    const reducer: zt.Reducer = try zt.Reducer.init(module);
+
+    var da = try zt.DeviceBuffer(f32).init(N);
+    defer da.deinit();
+
+    var db = try zt.DeviceBuffer(f32).init(N);
+    defer db.deinit();
+
+    try da.copyFromHost(a);
+
+    var expected: f32 = -std.math.inf(f32);
+    for (a) |v| expected = @max(expected, v);
+
+    try std.testing.expectApproxEqAbs(
+        expected,
+        try reducer.maxF32(&ctx, da, db, N),
+        1e-4,
+    );
+}
+
+
+test "reduceMaxF32 edge sizes" {
+    const gpa = std.testing.allocator;
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(reduce_ptx);
+    defer module.deinit();
+
+    const reducer: zt.Reducer = try zt.Reducer.init(module);
+    // const block_sum: zt.Kernel = try module.kernel("block_sum");
+
+    const sizes = [_]u32{
+        0,
+        1,
+        zt.THREADS - 1,
+        zt.THREADS,
+        zt.TILE - 1,
+        zt.TILE,
+        zt.TILE + 1,
+        zt.TILE * zt.TILE + 17,
+    };
+
+    for (sizes) |size| {
+        const alloc_len: u32 = @max(size, 1);
+
+        const input = try gpa.alloc(f32, alloc_len);
+        defer gpa.free(input);
+
+        var expected: f32 = -std.math.inf(f32);
+
+        for (0..size) |i| {
+            input[i] = @floatFromInt(i);
+            expected = @max(expected, input[i]);
+        }
+
+
+        if (size == 0) input[0] = 123.0;
+
+        var dinput = try zt.DeviceBuffer(f32).init(alloc_len);
+        defer dinput.deinit();
+
+        var dscratch = try zt.DeviceBuffer(f32).init(alloc_len);
+        defer dscratch.deinit();
+
+        try dinput.copyFromHost(input);
+
+        try std.testing.expectApproxEqAbs(
+            expected,
+            try reducer.maxF32(&ctx, dinput, dscratch, size),
+            1e-4,
+        );
+    }
+}

@@ -25,3 +25,28 @@ pub fn blockReduceSum(
 
     return partials.load(0);
 }
+
+pub fn blockReduceMax(
+    comptime T: type,
+    value: T,
+) T {
+    const tid = utils.threadId(0);
+    const partials = shared.sharedTile(T, THREADS, .block_reduce_max);
+
+    partials.store(tid, value);
+    utils.blockSync();
+
+    var stride: u32 = THREADS / 2;
+
+    while (stride > 0) : (stride /= 2) {
+        if (tid < stride) {
+            const a = partials.load(tid);
+            const b = partials.load(tid + stride);
+            partials.store(tid, @max(a, b));
+        }
+
+        utils.blockSync();
+    }
+
+    return partials.load(0);
+}
