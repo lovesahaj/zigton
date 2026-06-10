@@ -637,3 +637,68 @@ test "maxF32 edge sizes" {
         );
     }
 }
+
+
+inline fn applyReduceOp(
+    comptime op: std.builtin.ReduceOp,
+    a: anytype,
+    b: @TypeOf(a),
+) @TypeOf(a) {
+    return switch (op) {
+        .Add => a + b,
+        .Max => @max(a, b),
+        .Min => @min(a, b),
+        .Mul => a * b,
+        else => @compileError("unsupported block operation"),
+    };
+}
+
+test "reduceF32 host helper" {
+    const gpa = std.testing.allocator;
+    const N: u32 = zt.THREADS * 4 + 7;
+
+    const a = try gpa.alloc(f32, N);
+    defer gpa.free(a);
+
+    for (0..N) |i| {
+        a[i] = -@as(f32, @floatFromInt(i + 1));
+    }
+
+    const ops = [4]std.builtin.ReduceOp{ .Add, .Max, .Min, .Mul };
+
+    for (ops) |op| {
+        var ctx = try zt.Context.init(.{ .device_index = 0 });
+        defer ctx.deinit();
+
+        var module = try zt.Module.loadData(reduce_ptx);
+        defer module.deinit();
+
+        const reducer: zt.Reducer = try zt.Reducer.init(module);
+
+        var da = try zt.DeviceBuffer(f32).init(N);
+        defer da.deinit();
+
+        var db = try zt.DeviceBuffer(f32).init(N);
+        defer db.deinit();
+
+        try da.copyFromHost(a);
+
+        const expected: f32 = switch (op) {
+            .Add => 0.0,
+            .Max => -std.math.inf(f32),
+            .Min => std.math.inf(f32),
+            .Mul => 1.0,
+            else => @compileError("unsupported reduction op"),
+        };
+
+        for (a) |v| {
+            expected = applyReduceOp(op, v, expected);
+        }
+
+        try std.testing.expectApproxEqAbs(
+            expected,
+            try reducer.maxF32(&ctx, da, db, N),
+            1e-4,
+        );
+    }
+}

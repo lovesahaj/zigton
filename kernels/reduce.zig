@@ -25,6 +25,22 @@ pub export fn block_max(
     blockReduceKernel(.Max, x, z, n);
 }
 
+pub export fn block_mul(
+    x: zt.ConstGlobalPtr(f32),
+    z: zt.GlobalPtr(f32),
+    n: u32,
+) callconv(kernel_callconv) void {
+    blockReduceKernel(.Mul, x, z, n);
+}
+
+pub export fn block_min(
+    x: zt.ConstGlobalPtr(f32),
+    z: zt.GlobalPtr(f32),
+    n: u32,
+) callconv(kernel_callconv) void {
+    blockReduceKernel(.Min, x, z, n);
+}
+
 inline fn blockReduceKernel(
     comptime op: std.builtin.ReduceOp,
     x: zt.ConstGlobalPtr(f32),
