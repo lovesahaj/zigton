@@ -41,6 +41,7 @@ Device-side API:
 - `SharedTile(T, n)` backed by static `addrspace(.shared)` storage
 - `blockSync()` barrier wrapper lowering to `bar.sync 0`
 - device-side `blockReduceSum`
+- device-side `blockReduceMax`
 - shared target helpers: `is_device`, `kernel_callconv`
 
 Host-side API:
@@ -52,6 +53,7 @@ Host-side API:
 - `LaunchConfig`
 - `kernelArgs`
 - `Reducer` owning reduction kernel lookup
+- `Reducer.sumF32` / `Reducer.maxF32`
 
 Validated kernels/examples:
 
@@ -62,6 +64,7 @@ Validated kernels/examples:
 - `add_tile`
 - `shared_copy`
 - `block_sum`
+- `block_max`
 - `examples/single_file.zig` same-file host/device launch
 
 ## Layout

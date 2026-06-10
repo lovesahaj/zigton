@@ -401,6 +401,65 @@ test "sum_reduction kernel" {
     try std.testing.expectEqual(@reduce(.Add, vec), sum[0]);
 }
 
+test "block_max kernel" {
+    const gpa = std.testing.allocator;
+    const shared_n: u32 = zt.TILE * 2 + 7;
+
+    const grid_x: c_uint = try zt.utils.cdiv(shared_n, zt.TILE);
+
+    const x = try gpa.alloc(f32, shared_n);
+    defer gpa.free(x);
+    const z = try gpa.alloc(f32, grid_x);
+    defer gpa.free(z);
+
+    for (0..shared_n) |i| {
+        x[i] = -@as(f32, @floatFromInt(i + 1));
+    }
+
+    for (0..grid_x) |i| {
+        z[i] = 0.0;
+    }
+
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(reduce_ptx);
+    defer module.deinit();
+
+    const block_max: zt.Kernel = try module.kernel("block_max");
+
+    var dx = try zt.DeviceBuffer(f32).init(shared_n);
+    defer dx.deinit();
+
+    var dz = try zt.DeviceBuffer(f32).init(grid_x);
+    defer dz.deinit();
+
+    try dx.copyFromHost(x);
+
+    const args = zt.kernelArgs(.{
+        dx.ptr,
+        dz.ptr,
+        shared_n,
+    });
+
+    try block_max.launch(
+        .{
+            .grid = .{ .x = grid_x },
+            .block = .{ .x = zt.THREADS },
+        },
+        args,
+    );
+
+    try ctx.sync();
+    try dz.copyToHost(z);
+
+    for (0..grid_x) |block_i| {
+        const first_idx = block_i * @as(usize, @intCast(zt.TILE));
+        const expected = -@as(f32, @floatFromInt(first_idx + 1));
+        try std.testing.expectEqual(expected, z[block_i]);
+    }
+}
+
 test "reduceSumF32 host helper" {
     const gpa = std.testing.allocator;
     const N: u32 = zt.THREADS * 4 + 7;
@@ -489,8 +548,7 @@ test "reduceSumF32 edge sizes" {
     }
 }
 
-
-test "reduceMaxF32 host helper" {
+test "maxF32 host helper" {
     const gpa = std.testing.allocator;
     const N: u32 = zt.THREADS * 4 + 7;
 
@@ -498,7 +556,7 @@ test "reduceMaxF32 host helper" {
     defer gpa.free(a);
 
     for (0..N) |i| {
-        a[i] = @floatFromInt(i);
+        a[i] = -@as(f32, @floatFromInt(i + 1));
     }
 
     var ctx = try zt.Context.init(.{ .device_index = 0 });
@@ -527,8 +585,7 @@ test "reduceMaxF32 host helper" {
     );
 }
 
-
-test "reduceMaxF32 edge sizes" {
+test "maxF32 edge sizes" {
     const gpa = std.testing.allocator;
 
     var ctx = try zt.Context.init(.{ .device_index = 0 });
@@ -560,10 +617,9 @@ test "reduceMaxF32 edge sizes" {
         var expected: f32 = -std.math.inf(f32);
 
         for (0..size) |i| {
-            input[i] = @floatFromInt(i);
+            input[i] = -@as(f32, @floatFromInt(i + 1));
             expected = @max(expected, input[i]);
         }
-
 
         if (size == 0) input[0] = 123.0;
 
