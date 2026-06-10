@@ -39,7 +39,7 @@ pub export fn block_max(
     const T = @TypeOf(tile).Element;
 
     const partial_max: T = @reduce(.Max, tile.data);
-    const block_max_value = zt.blockReduceSum(T, partial_max);
+    const block_max_value = zt.blockReduceMax(T, partial_max);
 
     if (zt.utils.threadId(0) == 0) z[zt.utils.blockId(0)] = block_max_value;
 }

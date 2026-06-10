@@ -1,3 +1,5 @@
+const std = @import("std");
+
 const Context = @import("context.zig").Context;
 const Kernel = @import("kernel.zig").Kernel;
 const DeviceBuffer = @import("buffer.zig").DeviceBuffer;
@@ -76,7 +78,7 @@ pub const Reducer = struct {
         db: DeviceBuffer(f32),
         n: u32,
     ) !f32 {
-        if (n == 0) return 0.0;
+        if (n == 0) return -std.math.inf(f32);
 
         var current_count = n;
         var current_is_a = true;
