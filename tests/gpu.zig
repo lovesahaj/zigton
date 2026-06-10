@@ -507,7 +507,6 @@ test "reduceSumF32 edge sizes" {
     defer module.deinit();
 
     const block_sum_reducer: zt.Reducer = try zt.Reducer.init(module);
-    // const block_sum: zt.Kernel = try module.kernel("block_sum");
 
     const sizes = [_]u32{
         0,
