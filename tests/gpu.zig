@@ -666,7 +666,7 @@ test "reduceF32 host helper" {
 
     const ops = [4]std.builtin.ReduceOp{ .Add, .Max, .Min, .Mul };
 
-    for (ops) |op| {
+    inline for (ops) |op| {
         var ctx = try zt.Context.init(.{ .device_index = 0 });
         defer ctx.deinit();
 
@@ -683,7 +683,7 @@ test "reduceF32 host helper" {
 
         try da.copyFromHost(a);
 
-        const expected: f32 = switch (op) {
+        var expected: f32 = switch (op) {
             .Add => 0.0,
             .Max => -std.math.inf(f32),
             .Min => std.math.inf(f32),
@@ -697,7 +697,7 @@ test "reduceF32 host helper" {
 
         try std.testing.expectApproxEqAbs(
             expected,
-            try reducer.maxF32(&ctx, da, db, N),
+            try reducer.reduceF32(op, &ctx, da, db, N),
             1e-4,
         );
     }
