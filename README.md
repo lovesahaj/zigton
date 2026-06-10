@@ -90,7 +90,8 @@ src/device/config.zig     Shared THREADS / EPT / TILE constants
 kernels/gpu.zig           Base prototype kernels
 kernels/reduce.zig        Reduction kernels
 examples/single_file.zig  Same-file host/device experiment
-tests/gpu.zig             GPU integration tests
+tests/base.zig            Base kernel integration tests
+tests/reduce.zig          Reduction integration tests
 tools/fix_ptx_ir.sh       LLVM IR alias rewrite for NVPTX
 ```
 

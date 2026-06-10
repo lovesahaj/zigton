@@ -19,6 +19,16 @@ const HostModuleOptions = struct {
     cuda_mod: *std.Build.Module,
 };
 
+const GpuTestOptions = struct {
+    source: std.Build.LazyPath,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    zigton_mod: *std.Build.Module,
+    cuda_mod: *std.Build.Module,
+    cuda_prefix: []const u8,
+    kernels: []const KernelFile,
+};
+
 const KernelFile = struct {
     name: []const u8,
     import_name: []const u8,
@@ -67,6 +77,25 @@ fn addSameFileTest(b: *std.Build, opts: SameFileTestOptions) *std.Build.Step.Run
     });
 
     addPtxImport(test_mod, opts.kernel.import_name, opts.kernel.ptx);
+    const tests = b.addTest(.{ .root_module = test_mod });
+    linkCuda(b, tests.root_module, opts.cuda_prefix);
+
+    return b.addRunArtifact(tests);
+}
+
+fn addGpuTest(b: *std.Build, opts: GpuTestOptions) *std.Build.Step.Run {
+    const test_mod = createHostModule(b, .{
+        .source = opts.source,
+        .target = opts.target,
+        .optimize = opts.optimize,
+        .zigton_mod = opts.zigton_mod,
+        .cuda_mod = opts.cuda_mod,
+    });
+
+    for (opts.kernels) |kernel| {
+        addPtxImport(test_mod, kernel.import_name, kernel.ptx);
+    }
+
     const tests = b.addTest(.{ .root_module = test_mod });
     linkCuda(b, tests.root_module, opts.cuda_prefix);
 
@@ -188,22 +217,25 @@ pub fn build(b: *std.Build) void {
     linkCuda(b, mod_tests.root_module, cuda_prefix);
     const run_mod_tests = b.addRunArtifact(mod_tests);
 
-    const gpu_tests_mod = createHostModule(b, .{
-        .source = b.path("tests/gpu.zig"),
+    const run_base_tests = addGpuTest(b, .{
+        .source = b.path("tests/base.zig"),
         .target = target,
         .optimize = optimize,
         .zigton_mod = mod,
         .cuda_mod = cuda_mod,
+        .cuda_prefix = cuda_prefix,
+        .kernels = &.{base_kernel},
     });
 
-    addPtxImport(gpu_tests_mod, base_kernel.import_name, base_kernel.ptx);
-    addPtxImport(gpu_tests_mod, reduce_kernel.import_name, reduce_kernel.ptx);
-
-    const gpu_tests = b.addTest(.{
-        .root_module = gpu_tests_mod,
+    const run_reduce_tests = addGpuTest(b, .{
+        .source = b.path("tests/reduce.zig"),
+        .target = target,
+        .optimize = optimize,
+        .zigton_mod = mod,
+        .cuda_mod = cuda_mod,
+        .cuda_prefix = cuda_prefix,
+        .kernels = &.{reduce_kernel},
     });
-    linkCuda(b, gpu_tests.root_module, cuda_prefix);
-    const run_gpu_tests = b.addRunArtifact(gpu_tests);
 
     const run_single_file_example_tests = addSameFileTest(b, .{
         .name = "single-file-example",
@@ -221,10 +253,12 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
-    test_step.dependOn(&run_gpu_tests.step);
+    test_step.dependOn(&run_base_tests.step);
+    test_step.dependOn(&run_reduce_tests.step);
     if (b.args) |args| {
         run_mod_tests.addArgs(args);
-        run_gpu_tests.addArgs(args);
+        run_base_tests.addArgs(args);
+        run_reduce_tests.addArgs(args);
         run_single_file_example_tests.addArgs(args);
     }
 }
