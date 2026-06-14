@@ -2,18 +2,20 @@ const std = @import("std");
 const zt = @import("zigton");
 
 const matmul: [:0]const u8 = @embedFile("matmul_ptx");
-const M_dim = 4096;
-const K_dim = 4096;
-const N_dim = 4096;
-const n: u32 = M_dim * N_dim;
+
+const MatmulCase = struct {
+    m: usize,
+    k: usize,
+    n: usize,
+};
 
 fn matmulCPU(
-    A: []f32,
-    B: []f32,
+    A: []const f32,
+    B: []const f32,
     C: []f32,
-    M: u32,
-    K: u32,
-    N: u32,
+    M: usize,
+    K: usize,
+    N: usize,
 ) void {
     for (0..M) |r| {
         for (0..N) |c| {
@@ -27,25 +29,35 @@ fn matmulCPU(
 }
 
 test "matmul kernel" {
+    const cases = [_]MatmulCase{
+        .{ .m = 4, .k = 5, .n = 3 },
+        .{ .m = 33, .k = 7, .n = 35 },
+    };
+
+    for (cases) |case| {
+        try expectMatmul(case);
+    }
+}
+
+fn expectMatmul(case: MatmulCase) !void {
     const gpa = std.testing.allocator;
 
-    const A = try gpa.alloc(f32, M_dim * K_dim);
+    const A = try gpa.alloc(f32, case.m * case.k);
     defer gpa.free(A);
-    const B = try gpa.alloc(f32, K_dim * N_dim);
+    const B = try gpa.alloc(f32, case.k * case.n);
     defer gpa.free(B);
-    const C = try gpa.alloc(f32, M_dim * N_dim);
+    const C = try gpa.alloc(f32, case.m * case.n);
     defer gpa.free(C);
 
-    for (0..(M_dim * K_dim)) |i| {
-        A[i] = @as(f32, @floatFromInt(i));
+    for (A, 0..) |*v, i| {
+        v.* = @as(f32, @floatFromInt((i % 11) + 1));
     }
 
-    for (0..(N_dim * K_dim)) |i| {
-        B[i] = @as(f32, @floatFromInt(i));
+    for (B, 0..) |*v, i| {
+        v.* = @as(f32, @floatFromInt((i % 7) + 1));
     }
 
     @memset(C, 0.0);
-
 
     var ctx = try zt.Context.init(.{ .device_index = 0 });
     defer ctx.deinit();
@@ -53,26 +65,34 @@ test "matmul kernel" {
     var module = try zt.Module.loadData(matmul);
     defer module.deinit();
 
-    const vector_add: zt.Kernel = try module.kernel("matmul_naive");
+    const matmul_naive: zt.Kernel = try module.kernel("matmul_naive");
 
-    var dA = try zt.DeviceBuffer(f32).init(M_dim * K_dim);
+    var dA = try zt.DeviceBuffer(f32).init(A.len);
     defer dA.deinit();
 
-    var dB = try zt.DeviceBuffer(f32).init(N_dim * K_dim);
+    var dB = try zt.DeviceBuffer(f32).init(B.len);
     defer dB.deinit();
 
-    var dC = try zt.DeviceBuffer(f32).init(M_dim * N_dim);
+    var dC = try zt.DeviceBuffer(f32).init(C.len);
     defer dC.deinit();
 
     try dA.copyFromHost(A);
     try dB.copyFromHost(B);
+    try dC.copyFromHost(C);
 
-    const args = zt.kernelArgs(.{ dA.ptr, dB.ptr, dC.ptr, M_dim, K_dim, N_dim });
+    const args = zt.kernelArgs(.{
+        dA.ptr,
+        dB.ptr,
+        dC.ptr,
+        @as(u32, @intCast(case.m)),
+        @as(u32, @intCast(case.k)),
+        @as(u32, @intCast(case.n)),
+    });
 
-    const grid_x: c_uint = try zt.utils.cdiv(M_dim, 32);
-    const grid_y: c_uint = try zt.utils.cdiv(N_dim, 32);
+    const grid_x: c_uint = try zt.utils.cdiv(case.m, 32);
+    const grid_y: c_uint = try zt.utils.cdiv(case.n, 32);
 
-    try vector_add.launch(
+    try matmul_naive.launch(
         .{
             .grid = .{ .x = grid_x, .y = grid_y },
             .block = .{ .x = 32, .y = 32 },
@@ -83,12 +103,12 @@ test "matmul kernel" {
     try ctx.sync();
     try dC.copyToHost(C);
 
-    const expected = try gpa.alloc(f32, M_dim * N_dim);
+    const expected = try gpa.alloc(f32, C.len);
     defer gpa.free(expected);
 
-    matmulCPU(A, B, expected, M_dim, K_dim, N_dim);
+    matmulCPU(A, B, expected, case.m, case.k, case.n);
 
-    for (0..n) |i| {
-        try std.testing.expectEqual(expected[i], C[i]);
+    for (0..C.len) |i| {
+        try std.testing.expectApproxEqAbs(expected[i], C[i], 1e-4);
     }
 }
