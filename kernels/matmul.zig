@@ -25,8 +25,8 @@ pub export fn matmul_naive(
     if (r < M and c < N) {
         var tmp: f32 = 0.0;
         for (0..K) |i| {
-            tmp += A[r * K + i] + B[c * i + K];
+            tmp += A[r * K + i] * B[i * N + c];
         }
-        C[r * N + c] += tmp;
+        C[r * N + c] = tmp;
     }
 }
