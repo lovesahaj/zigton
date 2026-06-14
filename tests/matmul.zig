@@ -36,7 +36,7 @@ test "matmul kernel" {
     };
 
     for (cases) |case| {
-        try expectMatmul(case);
+        try performanceMatmul(case);
     }
 }
 
@@ -105,6 +105,8 @@ fn performanceMatmul(case: MatmulCase) !void {
     const grid_x: c_uint = try zt.utils.cdiv(case.m, 32);
     const grid_y: c_uint = try zt.utils.cdiv(case.n, 32);
 
+    var timer = try std.time.Timer.start();
+
     try matmul_naive.launch(
         .{
             .grid = .{ .x = grid_x, .y = grid_y },
@@ -114,7 +116,15 @@ fn performanceMatmul(case: MatmulCase) !void {
     );
 
     try ctx.sync();
+    const elapsed_ns = timer.read();
+
     try dC.copyToHost(C);
+
+    const elapsed_ms = @as(f64, @floatFromInt(elapsed_ns)) / std.time.ns_per_ms;
+    std.debug.print(
+        "matmul_naive {d}x{d}x{d}: {d} ns ({d:.3} ms)\n",
+        .{ case.m, case.k, case.n, elapsed_ns, elapsed_ms },
+    );
 }
 
 fn expectMatmul(case: MatmulCase) !void {
