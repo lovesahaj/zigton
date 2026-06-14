@@ -49,7 +49,7 @@ test "matmul performance kernel" {
 
     const cases = [_]MatmulCase{
         .{ .m = 33, .k = 7, .n = 35 },
-        .{ .m = 512, .k = 512, .n = 512 },
+        .{ .m = 4096, .k = 4096, .n = 4096 },
     };
 
     for (cases) |case| {
@@ -58,14 +58,14 @@ test "matmul performance kernel" {
             &matmul_naive,
             "matmul_naive",
             case,
-            try naiveCoalescedLaunch(case),
+            try naiveLaunch(case),
         );
         try performanceMatmul(
             &ctx,
             &matmul_coalsce,
             "matmul_coalsce",
             case,
-            try coalsceCompatibleLaunch(case),
+            try coalsceLaunch(case),
         );
     }
 }
@@ -87,8 +87,8 @@ test "matmul kernel" {
     };
 
     for (cases) |case| {
-        try expectMatmul(&ctx, &matmul_naive, case, try naiveCoalescedLaunch(case));
-        try expectMatmul(&ctx, &matmul_coalsce, case, try coalsceCompatibleLaunch(case));
+        try expectMatmul(&ctx, &matmul_naive, case, try naiveLaunch(case));
+        try expectMatmul(&ctx, &matmul_coalsce, case, try coalsceLaunch(case));
     }
 }
 
@@ -141,7 +141,7 @@ fn performanceMatmul(
         @as(u32, @intCast(case.n)),
     });
 
-    const started = Io.Clock.Timestamp.now(io, .awake);
+    const started = Io.Clock.Timestamp.now(io, .real);
 
     try matmul_kernel.launch(
         .{
@@ -153,7 +153,7 @@ fn performanceMatmul(
 
     try ctx.sync();
     const elapsed = started.untilNow(io);
-    const elapsed_ns = elapsed.toNanoseconds();
+    const elapsed_ns = elapsed.raw.toNanoseconds();
 
     try dC.copyToHost(C);
 
@@ -242,24 +242,24 @@ fn expectMatmul(
     }
 }
 
-fn naiveCoalescedLaunch(case: MatmulCase) !MatmulLaunch {
+fn naiveLaunch(case: MatmulCase) !MatmulLaunch {
     // matmul_naive maps x -> row and y -> col. With block.x = 1, warp lanes
     // advance along y/columns, so C writes and B loads are contiguous.
     return .{
-        .grid_x = try zt.utils.cdiv(case.m, 1),
+        .grid_x = try zt.utils.cdiv(case.m, 32),
         .grid_y = try zt.utils.cdiv(case.n, 32),
-        .block_x = 1,
+        .block_x = 32,
         .block_y = 32,
     };
 }
 
-fn coalsceCompatibleLaunch(case: MatmulCase) !MatmulLaunch {
+fn coalsceLaunch(case: MatmulCase) !MatmulLaunch {
     // matmul_coalsce currently covers every row only when block.x = 1. A true
     // coalesced launch for this kernel needs its row calculation fixed first.
     return .{
-        .grid_x = try zt.utils.cdiv(case.m, 1),
-        .grid_y = try zt.utils.cdiv(case.n, 1),
-        .block_x = 1,
+        .grid_x = try zt.utils.cdiv(case.m, 32),
+        .grid_y = try zt.utils.cdiv(case.n, 32),
+        .block_x = 32 * 32,
         .block_y = 1,
     };
 }
