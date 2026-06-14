@@ -1,4 +1,5 @@
 const std = @import("std");
+const Io = std.Io;
 const zt = @import("zigton");
 
 const matmul: [:0]const u8 = @embedFile("matmul_ptx");
@@ -28,32 +29,72 @@ fn matmulCPU(
     }
 }
 
-test "matmul kernel" {
-    const cases = [_]MatmulCase{
-        .{ .m = 4, .k = 5, .n = 3 },
-        .{ .m = 33, .k = 7, .n = 35 },
-        // .{ .m = 4096, .k = 4096, .n = 4096}
-    };
-
-    for (cases) |case| {
-        try performanceMatmul(case);
-    }
-}
-
 test "matmul performance kernel" {
+    // 1. Initialize context ONCE for this test block
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(matmul);
+    defer module.deinit();
+
+    const matmul_kernel: zt.Kernel = try module.kernel("matmul_coalsce");
+
     const cases = [_]MatmulCase{
         .{ .m = 4, .k = 5, .n = 3 },
         .{ .m = 33, .k = 7, .n = 35 },
-        // .{ .m = 4096, .k = 4096, .n = 4096}
+        .{ .m = 4096, .k = 4096, .n = 4096 },
     };
 
     for (cases) |case| {
-        try expectMatmul(case);
+        const grid_x: c_uint = try zt.utils.cdiv(case.m, 32);
+        const grid_y: c_uint = try zt.utils.cdiv(case.n, 32);
+
+        const block_x: c_uint = 32 * 32;
+        const block_y: c_uint = 1;
+
+        try performanceMatmul(
+            &ctx,
+            &matmul_kernel,
+            case,
+            grid_x,
+            grid_y,
+            block_x,
+            block_y,
+        );
     }
 }
 
-fn performanceMatmul(case: MatmulCase) !void {
+test "matmul kernel" {
+    // 2. Initialize context ONCE for this test block
+    var ctx = try zt.Context.init(.{ .device_index = 0 });
+    defer ctx.deinit();
+
+    var module = try zt.Module.loadData(matmul);
+    defer module.deinit();
+
+    const matmul_kernel: zt.Kernel = try module.kernel("matmul_coalsce");
+
+    const cases = [_]MatmulCase{
+        .{ .m = 4, .k = 5, .n = 3 },
+        .{ .m = 33, .k = 7, .n = 35 },
+    };
+
+    for (cases) |case| {
+        try expectMatmul(&ctx, &matmul_kernel, case);
+    }
+}
+
+fn performanceMatmul(
+    ctx: *zt.Context,
+    matmul_kernel: *const zt.Kernel,
+    case: MatmulCase,
+    grid_x: c_uint,
+    grid_y: c_uint,
+    block_x: c_uint,
+    block_y: c_uint,
+) !void {
     const gpa = std.testing.allocator;
+    const io = std.testing.io;
 
     const A = try gpa.alloc(f32, case.m * case.k);
     defer gpa.free(A);
@@ -71,14 +112,6 @@ fn performanceMatmul(case: MatmulCase) !void {
     }
 
     @memset(C, 0.0);
-
-    var ctx = try zt.Context.init(.{ .device_index = 0 });
-    defer ctx.deinit();
-
-    var module = try zt.Module.loadData(matmul);
-    defer module.deinit();
-
-    const matmul_naive: zt.Kernel = try module.kernel("matmul_naive");
 
     var dA = try zt.DeviceBuffer(f32).init(A.len);
     defer dA.deinit();
@@ -102,32 +135,32 @@ fn performanceMatmul(case: MatmulCase) !void {
         @as(u32, @intCast(case.n)),
     });
 
-    const grid_x: c_uint = try zt.utils.cdiv(case.m, 32);
-    const grid_y: c_uint = try zt.utils.cdiv(case.n, 32);
+    var start = Io.Clock.now(.real, io);
 
-    var timer = try std.time.Timer.start();
-
-    try matmul_naive.launch(
+    try matmul_kernel.launch(
         .{
             .grid = .{ .x = grid_x, .y = grid_y },
-            .block = .{ .x = 32, .y = 32 },
+            .block = .{ .x = block_x, .y = block_y },
         },
         args,
     );
 
     try ctx.sync();
-    const elapsed_ns = timer.read();
+    const elapsed_ns = start.untilNow(io, .real);
 
     try dC.copyToHost(C);
 
-    const elapsed_ms = @as(f64, @floatFromInt(elapsed_ns)) / std.time.ns_per_ms;
     std.debug.print(
         "matmul_naive {d}x{d}x{d}: {d} ns ({d:.3} ms)\n",
-        .{ case.m, case.k, case.n, elapsed_ns, elapsed_ms },
+        .{ case.m, case.k, case.n, elapsed_ns.toNanoseconds(), elapsed_ns.toMilliseconds() },
     );
 }
 
-fn expectMatmul(case: MatmulCase) !void {
+fn expectMatmul(
+    ctx: *zt.Context,
+    kernel: *const zt.Kernel,
+    case: MatmulCase,
+) !void {
     const gpa = std.testing.allocator;
 
     const A = try gpa.alloc(f32, case.m * case.k);
@@ -146,14 +179,6 @@ fn expectMatmul(case: MatmulCase) !void {
     }
 
     @memset(C, 0.0);
-
-    var ctx = try zt.Context.init(.{ .device_index = 0 });
-    defer ctx.deinit();
-
-    var module = try zt.Module.loadData(matmul);
-    defer module.deinit();
-
-    const matmul_naive: zt.Kernel = try module.kernel("matmul_naive");
 
     var dA = try zt.DeviceBuffer(f32).init(A.len);
     defer dA.deinit();
@@ -180,7 +205,7 @@ fn expectMatmul(case: MatmulCase) !void {
     const grid_x: c_uint = try zt.utils.cdiv(case.m, 32);
     const grid_y: c_uint = try zt.utils.cdiv(case.n, 32);
 
-    try matmul_naive.launch(
+    try kernel.launch(
         .{
             .grid = .{ .x = grid_x, .y = grid_y },
             .block = .{ .x = 32, .y = 32 },
