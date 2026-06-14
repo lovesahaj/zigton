@@ -277,6 +277,9 @@ pub fn build(b: *std.Build) void {
     const single_file_example_step = b.step("single-file-example", "Run same-file host/device example");
     single_file_example_step.dependOn(&run_single_file_example_tests.step);
 
+    const matmul_test_step = b.step("test-matmul", "Run matmul tests");
+    matmul_test_step.dependOn(&run_matmul_tests.step);
+
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_base_tests.step);
