@@ -13,6 +13,9 @@ test_shared:
 test_reduce:
 	zig build test -Dllc-path=../.local/llvm22/bin/llc -Dcuda-prefix=${HOME}/.local/cuda-13.0 -- --test-filter reduceSumF32
 
+test_matmul:
+	zig build test -Dllc-path=../.local/llvm22/bin/llc -Dcuda-prefix=${HOME}/.local/cuda-13.0 -- --test-filter matmul
+
 test_single_file_kernel:
 	zig build single-file-example \
 	-Dllc-path=../.local/llvm22/bin/llc \

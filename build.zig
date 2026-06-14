@@ -55,7 +55,11 @@ fn createHostModule(b: *std.Build, opts: HostModuleOptions) *std.Build.Module {
     });
 }
 
-fn addPtxImport(module: *std.Build.Module, name: []const u8, ptx: std.Build.LazyPath) void {
+fn addPtxImport(
+    module: *std.Build.Module,
+    name: []const u8,
+    ptx: std.Build.LazyPath,
+) void {
     module.addAnonymousImport(name, .{ .root_source_file = ptx });
 }
 
@@ -141,6 +145,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const matmul_kernel = addKernelFile(b, .{
+        .name = "matmul",
+        .source = b.path("kernels/matmul.zig"),
+        .gpu_arch = gpu_arch,
+        .llc_path = llc_path,
+        .optimize = optimize,
+    });
+
     const single_file_example_kernel = addKernelFile(b, .{
         .name = "single_file_example",
         .source = b.path("examples/single_file.zig"),
@@ -191,6 +203,7 @@ pub fn build(b: *std.Build) void {
     // a tracked build artifact and the exe depends on it through the graph.
     addPtxImport(exe.root_module, base_kernel.import_name, base_kernel.ptx);
     addPtxImport(exe.root_module, reduce_kernel.import_name, reduce_kernel.ptx);
+    addPtxImport(exe.root_module, matmul_kernel.import_name, matmul_kernel.ptx);
     linkCuda(b, exe.root_module, cuda_prefix);
 
     b.installArtifact(exe);
@@ -200,8 +213,11 @@ pub fn build(b: *std.Build) void {
     const ptx_step = b.step("ptx", "Build the GPU kernel PTX only");
     const install_base_ptx = b.addInstallFile(base_kernel.ptx, "base.ptx");
     const install_reduce_ptx = b.addInstallFile(reduce_kernel.ptx, "reduce.ptx");
+    const install_matmul_ptx = b.addInstallFile(matmul_kernel.ptx, "matmul.ptx");
+
     ptx_step.dependOn(&install_base_ptx.step);
     ptx_step.dependOn(&install_reduce_ptx.step);
+    ptx_step.dependOn(&install_matmul_ptx.step);
 
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);
@@ -237,6 +253,16 @@ pub fn build(b: *std.Build) void {
         .kernels = &.{reduce_kernel},
     });
 
+    const run_matmul_tests = addGpuTest(b, .{
+        .source = b.path("tests/matmul.zig"),
+        .target = target,
+        .optimize = optimize,
+        .zigton_mod = mod,
+        .cuda_mod = cuda_mod,
+        .cuda_prefix = cuda_prefix,
+        .kernels = &.{matmul_kernel},
+    });
+
     const run_single_file_example_tests = addSameFileTest(b, .{
         .name = "single-file-example",
         .source = b.path("examples/single_file.zig"),
@@ -255,10 +281,12 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_base_tests.step);
     test_step.dependOn(&run_reduce_tests.step);
+    test_step.dependOn(&run_matmul_tests.step);
     if (b.args) |args| {
         run_mod_tests.addArgs(args);
         run_base_tests.addArgs(args);
         run_reduce_tests.addArgs(args);
+        run_matmul_tests.addArgs(args);
         run_single_file_example_tests.addArgs(args);
     }
 }
