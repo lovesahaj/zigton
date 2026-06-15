@@ -23,13 +23,14 @@ pub inline fn sharedTile(
     comptime n: u32,
     comptime tag: anytype,
 ) SharedTile(T, n) {
-    _ = tag;
-
     // Zig allows static local variables through nested containers.
     // This lets the helper hide shared storage from kernel code.
     const Storage = struct {
+        const storage_tag = tag;
         var data: [n]T addrspace(.shared) = undefined;
     };
+
+    _ = Storage.storage_tag;
 
     return .init(&Storage.data);
 }
