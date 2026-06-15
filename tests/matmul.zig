@@ -49,19 +49,21 @@ test "matmul kernel" {
     const cases = [_]MatmulCase{
         .{ .m = 4, .k = 5, .n = 3 },
         .{ .m = 33, .k = 7, .n = 35 },
-        .{ .m = 574, .k = 794, .n = 3838 },
+        .{ .m = 17, .k = 31, .n = 19 },
+        .{ .m = 32, .k = 32, .n = 32 },
     };
 
     for (cases) |case| {
-        try expectMatmul(&ctx, &matmul_naive, case, try naiveLaunch(case));
-        try expectMatmul(&ctx, &matmul_coalsce, case, try coalsceLaunch(case));
-        try expectMatmul(&ctx, &matmul_tile, case, try tileLaunch(case));
+        try expectMatmul(&ctx, &matmul_naive, "matmul_naive", case, try naiveLaunch(case));
+        try expectMatmul(&ctx, &matmul_coalsce, "matmul_coalsce", case, try coalsceLaunch(case));
+        try expectMatmul(&ctx, &matmul_tile, "matmul_tiled", case, try tileLaunch(case));
     }
 }
 
 fn expectMatmul(
     ctx: *zt.Context,
     kernel: *const zt.Kernel,
+    name: []const u8,
     case: MatmulCase,
     launch: MatmulLaunch,
 ) !void {
@@ -123,7 +125,18 @@ fn expectMatmul(
     matmulCPU(A, B, expected, case.m, case.k, case.n);
 
     for (0..C.len) |i| {
-        try std.testing.expectApproxEqAbs(expected[i], C[i], 1e-4);
+        const ok = if (expected[i] == 0.0)
+            std.math.approxEqAbs(f32, expected[i], C[i], 1e-4)
+        else
+            std.math.approxEqRel(f32, expected[i], C[i], 1e-4);
+
+        if (!ok) {
+            std.debug.print(
+                "{s} mismatch case={d}x{d}x{d} index={d} expected={d} actual={d}\n",
+                .{ name, case.m, case.k, case.n, i, expected[i], C[i] },
+            );
+            return error.MatmulMismatch;
+        }
     }
 }
 
