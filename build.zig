@@ -145,6 +145,7 @@ fn addBench(b: *std.Build, opts: BenchOptions) void {
 
     const bench_step = b.step(opts.step_name, opts.description);
     bench_step.dependOn(&run_bench.step);
+    b.installArtifact(bench);
 }
 
 // Although this function looks imperative, it does not perform the build

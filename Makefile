@@ -1,3 +1,6 @@
+build:
+	zig build -Dllc-path=../.local/llvm22/bin/llc -Dcuda-prefix=/afs/inf.ed.ac.uk/user/s28/s2881386/.local/cuda-13.0
+
 build_ptx:
 	zig build ptx -Dllc-path=../.local/llvm22/bin/llc -Dgpu-arch=sm_89
 

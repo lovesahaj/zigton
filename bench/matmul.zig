@@ -43,6 +43,7 @@ pub fn main(init: std.process.Init) !void {
     const cases = [_]MatmulCase{
         .{ .m = 512, .k = 512, .n = 512 },
         .{ .m = 1024, .k = 1024, .n = 1024 },
+        .{ .m = 4096, .k = 4096, .n = 4096},
     };
 
     std.debug.print("bench-matmul warmup={d} timed={d}\n", .{ warmup_iters, timed_iters });
@@ -199,20 +200,22 @@ fn nsToSeconds(ns: i96) f64 {
     return @as(f64, @floatFromInt(ns)) / @as(f64, @floatFromInt(std.time.ns_per_s));
 }
 
+const TILE = 32;
+
 fn naiveLaunch(case: MatmulCase) !MatmulLaunch {
     return .{
-        .grid_x = try zt.utils.cdiv(case.m, 1),
-        .grid_y = try zt.utils.cdiv(case.n, 32),
-        .block_x = 1,
-        .block_y = 32,
+        .grid_x = try zt.utils.cdiv(case.m, TILE),
+        .grid_y = try zt.utils.cdiv(case.n, TILE),
+        .block_x = TILE,
+        .block_y = TILE,
     };
 }
 
 fn coalsceCompatibleLaunch(case: MatmulCase) !MatmulLaunch {
     return .{
-        .grid_x = try zt.utils.cdiv(case.m, 1),
-        .grid_y = try zt.utils.cdiv(case.n, 1),
-        .block_x = 1,
-        .block_y = 1,
+        .grid_x = try zt.utils.cdiv(case.m, TILE),
+        .grid_y = try zt.utils.cdiv(case.n, TILE),
+        .block_x = TILE,
+        .block_y = TILE,
     };
 }

@@ -130,7 +130,7 @@ fn naiveLaunch(case: MatmulCase) !MatmulLaunch {
     return .{
         .grid_x = try zt.utils.cdiv(case.m, 1),
         .grid_y = try zt.utils.cdiv(case.n, 32),
-        .block_x = 1,
+        .block_x = 32,
         .block_y = 32,
     };
 }
@@ -138,9 +138,9 @@ fn naiveLaunch(case: MatmulCase) !MatmulLaunch {
 fn coalsceLaunch(case: MatmulCase) !MatmulLaunch {
     // matmul_coalsce currently covers every row only when block.x = 1.
     return .{
-        .grid_x = try zt.utils.cdiv(case.m, 1),
-        .grid_y = try zt.utils.cdiv(case.n, 1),
-        .block_x = 1,
-        .block_y = 1,
+        .grid_x = try zt.utils.cdiv(case.m, 32),
+        .grid_y = try zt.utils.cdiv(case.n, 32),
+        .block_x = 32,
+        .block_y = 32,
     };
 }
