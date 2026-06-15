@@ -44,15 +44,18 @@ test "matmul kernel" {
 
     const matmul_naive: zt.Kernel = try module.kernel("matmul_naive");
     const matmul_coalsce: zt.Kernel = try module.kernel("matmul_coalsce");
+    const matmul_tile: zt.Kernel = try module.kernel("matmul_tiled");
 
     const cases = [_]MatmulCase{
         .{ .m = 4, .k = 5, .n = 3 },
         .{ .m = 33, .k = 7, .n = 35 },
+        .{ .m = 574, .k = 794, .n = 3838 },
     };
 
     for (cases) |case| {
         try expectMatmul(&ctx, &matmul_naive, case, try naiveLaunch(case));
         try expectMatmul(&ctx, &matmul_coalsce, case, try coalsceLaunch(case));
+        try expectMatmul(&ctx, &matmul_tile, case, try tileLaunch(case));
     }
 }
 
@@ -142,5 +145,16 @@ fn coalsceLaunch(case: MatmulCase) !MatmulLaunch {
         .grid_y = try zt.utils.cdiv(case.m, 32),
         .block_x = 32,
         .block_y = 32,
+    };
+}
+
+fn tileLaunch(case: MatmulCase) !MatmulLaunch {
+    // matmul_coalsce maps x -> col and y -> row, so warp lanes advance across
+    // columns for coalesced B loads and C stores.
+    return .{
+        .grid_x = try zt.utils.cdiv(case.n, 16),
+        .grid_y = try zt.utils.cdiv(case.m, 16),
+        .block_x = 16,
+        .block_y = 16,
     };
 }
