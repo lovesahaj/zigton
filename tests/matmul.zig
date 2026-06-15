@@ -125,10 +125,9 @@ fn expectMatmul(
 }
 
 fn naiveLaunch(case: MatmulCase) !MatmulLaunch {
-    // matmul_naive maps x -> row and y -> col. With block.x = 1, warp lanes
-    // advance along y/columns, so C writes and B loads are contiguous.
+    // matmul_naive maps x -> row and y -> col.
     return .{
-        .grid_x = try zt.utils.cdiv(case.m, 1),
+        .grid_x = try zt.utils.cdiv(case.m, 32),
         .grid_y = try zt.utils.cdiv(case.n, 32),
         .block_x = 32,
         .block_y = 32,
@@ -136,10 +135,11 @@ fn naiveLaunch(case: MatmulCase) !MatmulLaunch {
 }
 
 fn coalsceLaunch(case: MatmulCase) !MatmulLaunch {
-    // matmul_coalsce currently covers every row only when block.x = 1.
+    // matmul_coalsce maps x -> col and y -> row, so warp lanes advance across
+    // columns for coalesced B loads and C stores.
     return .{
-        .grid_x = try zt.utils.cdiv(case.m, 32),
-        .grid_y = try zt.utils.cdiv(case.n, 32),
+        .grid_x = try zt.utils.cdiv(case.n, 32),
+        .grid_y = try zt.utils.cdiv(case.m, 32),
         .block_x = 32,
         .block_y = 32,
     };
