@@ -92,6 +92,7 @@ src/device/reduce.zig     Device block reductions
 src/device/config.zig     Shared THREADS / EPT / TILE constants
 kernels/base.zig          Base prototype kernels
 kernels/reduce.zig        Reduction kernels
+bench/matmul.zig          Matmul benchmark executable
 examples/single_file.zig  Same-file host/device experiment
 tests/base.zig            Base kernel integration tests
 tests/reduce.zig          Reduction integration tests
@@ -140,6 +141,15 @@ Run tests:
 
 ```sh
 zig build test \
+  -Dllc-path=/path/to/llc \
+  -Dgpu-arch=sm_89 \
+  -Dcuda-prefix=/path/to/cuda
+```
+
+Run the matmul benchmark:
+
+```sh
+zig build bench-matmul \
   -Dllc-path=/path/to/llc \
   -Dgpu-arch=sm_89 \
   -Dcuda-prefix=/path/to/cuda

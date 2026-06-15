@@ -29,6 +29,19 @@ const GpuTestOptions = struct {
     kernels: []const KernelFile,
 };
 
+const BenchOptions = struct {
+    step_name: []const u8,
+    exe_name: []const u8,
+    description: []const u8,
+    source: std.Build.LazyPath,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    zigton_mod: *std.Build.Module,
+    cuda_mod: *std.Build.Module,
+    cuda_prefix: []const u8,
+    kernels: []const KernelFile,
+};
+
 const KernelFile = struct {
     name: []const u8,
     import_name: []const u8,
@@ -104,6 +117,34 @@ fn addGpuTest(b: *std.Build, opts: GpuTestOptions) *std.Build.Step.Run {
     linkCuda(b, tests.root_module, opts.cuda_prefix);
 
     return b.addRunArtifact(tests);
+}
+
+fn addBench(b: *std.Build, opts: BenchOptions) void {
+    const bench_mod = createHostModule(b, .{
+        .source = opts.source,
+        .target = opts.target,
+        .optimize = opts.optimize,
+        .zigton_mod = opts.zigton_mod,
+        .cuda_mod = opts.cuda_mod,
+    });
+
+    for (opts.kernels) |kernel| {
+        addPtxImport(bench_mod, kernel.import_name, kernel.ptx);
+    }
+
+    const bench = b.addExecutable(.{
+        .name = opts.exe_name,
+        .root_module = bench_mod,
+    });
+    linkCuda(b, bench.root_module, opts.cuda_prefix);
+
+    const run_bench = b.addRunArtifact(bench);
+    if (b.args) |args| {
+        run_bench.addArgs(args);
+    }
+
+    const bench_step = b.step(opts.step_name, opts.description);
+    bench_step.dependOn(&run_bench.step);
 }
 
 // Although this function looks imperative, it does not perform the build
@@ -207,6 +248,19 @@ pub fn build(b: *std.Build) void {
     linkCuda(b, exe.root_module, cuda_prefix);
 
     b.installArtifact(exe);
+
+    addBench(b, .{
+        .step_name = "bench-matmul",
+        .exe_name = "bench-matmul",
+        .description = "Run matmul benchmark",
+        .source = b.path("bench/matmul.zig"),
+        .target = target,
+        .optimize = optimize,
+        .zigton_mod = mod,
+        .cuda_mod = cuda_mod,
+        .cuda_prefix = cuda_prefix,
+        .kernels = &.{matmul_kernel},
+    });
 
     // Convenience: `zig build ptx` to produce just the PTX without building the
     // host exe — handy while iterating on the kernel.
