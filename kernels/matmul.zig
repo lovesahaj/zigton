@@ -41,11 +41,8 @@ pub export fn matmul_coalsce(
     // r and c give me the row and col
     // of the matrix C that this thread
     // is trying to calculate
-    const BLOCK_SIZE = 32;
-    const r = zt.utils.blockId(0) * BLOCK_SIZE + zt.utils.threadId(0) / BLOCK_SIZE;
-    const c = zt.utils.blockId(1) * BLOCK_SIZE + zt.utils.threadId(0) % BLOCK_SIZE;
-
-    // const local_tile = zt.utils.blockId(0) * zt.utils.blockSize(0) + zt.utils.threadId(1);
+    const r = zt.utils.blockId(1) * zt.utils.blockSize(1) + zt.utils.threadId(1);
+    const c = zt.utils.blockId(0) * zt.utils.blockSize(0) + zt.utils.threadId(0);
 
     if (r < M and c < N) {
         var tmp: f32 = 0.0;
