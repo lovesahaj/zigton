@@ -19,3 +19,4 @@ pub const check = @import("utils.zig").check;
 pub const errorString = @import("utils.zig").errorString;
 
 pub const Reducer = @import("reduce.zig").Reducer;
+pub const Matmul = @import("matmul.zig").Matmul;

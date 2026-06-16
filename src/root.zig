@@ -30,6 +30,8 @@ pub const THREADS = @import("device/config.zig").THREADS;
 pub const EPT = @import("device/config.zig").EPT;
 pub const TILE = @import("device/config.zig").TILE;
 
+pub const Matmul = host.Matmul;
+
 pub fn GlobalPtr(comptime T: type) type {
     return [*]T;
 }
