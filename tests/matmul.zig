@@ -194,7 +194,7 @@ fn tile2DLaunch(case: MatmulCase) !MatmulLaunch {
     // matmul_coalsce maps x -> col and y -> row, so warp lanes advance across
     // columns for coalesced B loads and C stores.
     const BM = 64; // block M dim
-    const BN = 16; // block N dim
+    const BN = 64; // block N dim
     const TM = 4; // number of elements in a thread
     const TN = 4; // number of elements in a thread
     return .{

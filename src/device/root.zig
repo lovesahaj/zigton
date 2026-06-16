@@ -27,4 +27,8 @@ pub const blockReduceMax = @import("reduce.zig").blockReduceMax;
 pub const blockReduce = @import("reduce.zig").blockReduce;
 pub const Tensor = @import("tensor.zig").Tensor;
 pub const TensorAccess = @import("tensor.zig").TensorAccess;
+pub const matmul = @import("matmul.zig");
 
+pub fn programId(comptime axis: u32) u32 {
+    return utils.blockId(axis);
+}
