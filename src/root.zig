@@ -37,3 +37,28 @@ pub fn GlobalPtr(comptime T: type) type {
 pub fn ConstGlobalPtr(comptime T: type) type {
     return [*]const T;
 }
+
+pub const TensorAccess = enum {
+    read,
+    write,
+    read_write,
+};
+
+pub fn TensorPtr(comptime T: type, comptime access: TensorAccess) type {
+    return switch (access) {
+        .read => ConstGlobalPtr(T),
+        .write, .read_write => GlobalPtr(T),
+    };
+}
+
+pub fn Tensor(
+    comptime T: type,
+    comptime rank: u32,
+    comptime access: TensorAccess,
+) type {
+    return struct {
+        ptr: TensorPtr(T, access),
+        shape: [rank]u32,
+        stride: [rank]u32,
+    };
+}

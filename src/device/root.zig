@@ -25,3 +25,6 @@ pub const sharedTile = @import("sharedtile.zig").sharedTile;
 pub const blockReduceSum = @import("reduce.zig").blockReduceSum;
 pub const blockReduceMax = @import("reduce.zig").blockReduceMax;
 pub const blockReduce = @import("reduce.zig").blockReduce;
+pub const Tensor = @import("tensor.zig").Tensor;
+pub const TensorAccess = @import("tensor.zig").TensorAccess;
+
