@@ -45,6 +45,8 @@ test "matmul kernel" {
     const matmul_naive: zt.Kernel = try module.kernel("matmul_naive");
     const matmul_coalsce: zt.Kernel = try module.kernel("matmul_coalsce");
     const matmul_tile: zt.Kernel = try module.kernel("matmul_tiled");
+    const matmul_tiled_tm: zt.Kernel = try module.kernel("matmul_tiled_tm");
+    const matmul_tiled_2d: zt.Kernel = try module.kernel("matmul_tiled_2d");
 
     const cases = [_]MatmulCase{
         .{ .m = 4, .k = 5, .n = 3 },
@@ -57,6 +59,8 @@ test "matmul kernel" {
         try expectMatmul(&ctx, &matmul_naive, "matmul_naive", case, try naiveLaunch(case));
         try expectMatmul(&ctx, &matmul_coalsce, "matmul_coalsce", case, try coalsceLaunch(case));
         try expectMatmul(&ctx, &matmul_tile, "matmul_tiled", case, try tileLaunch(case));
+        try expectMatmul(&ctx, &matmul_tiled_tm, "matmul_tiled_tm", case, try tileTMLaunch(case));
+        try expectMatmul(&ctx, &matmul_tiled_2d, "matmul_tiled_2d", case, try tileLaunch(case));
     }
 }
 
@@ -169,5 +173,34 @@ fn tileLaunch(case: MatmulCase) !MatmulLaunch {
         .grid_y = try zt.utils.cdiv(case.m, 16),
         .block_x = 16,
         .block_y = 16,
+    };
+}
+
+fn tileTMLaunch(case: MatmulCase) !MatmulLaunch {
+    // matmul_coalsce maps x -> col and y -> row, so warp lanes advance across
+    // columns for coalesced B loads and C stores.
+    const BM = 64; // block M dim
+    const BN = 16; // block N dim
+    const TM = 4; // number of elements in a thread
+    return .{
+        .grid_x = try zt.utils.cdiv(case.n, BN),
+        .grid_y = try zt.utils.cdiv(case.m, BM),
+        .block_x = BN,
+        .block_y = BM / TM,
+    };
+}
+
+fn tile2DLaunch(case: MatmulCase) !MatmulLaunch {
+    // matmul_coalsce maps x -> col and y -> row, so warp lanes advance across
+    // columns for coalesced B loads and C stores.
+    const BM = 64; // block M dim
+    const BN = 16; // block N dim
+    const TM = 4; // number of elements in a thread
+    const TN = 4; // number of elements in a thread
+    return .{
+        .grid_x = try zt.utils.cdiv(case.n, BN),
+        .grid_y = try zt.utils.cdiv(case.m, BM),
+        .block_x = BN / TN,
+        .block_y = BM / TM,
     };
 }

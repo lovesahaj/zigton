@@ -40,6 +40,8 @@ pub fn main(init: std.process.Init) !void {
     const matmul_naive = try module.kernel("matmul_naive");
     const matmul_coalsce = try module.kernel("matmul_coalsce");
     const matmul_tiled = try module.kernel("matmul_tiled");
+    const matmul_tiled_tm = try module.kernel("matmul_tiled_tm");
+    const matmul_tiled_2d = try module.kernel("matmul_tiled_2d");
 
     const cases = [_]MatmulCase{
         .{ .m = 512, .k = 512, .n = 512 },
@@ -78,6 +80,26 @@ pub fn main(init: std.process.Init) !void {
             "matmul_tiled",
             case,
             try tiledLaunch(case),
+        );
+
+        try benchKernel(
+            io,
+            allocator,
+            &ctx,
+            &matmul_tiled_tm,
+            "matmul_tiled_tm",
+            case,
+            try tileTMLaunch(case),
+        );
+        
+        try benchKernel(
+            io,
+            allocator,
+            &ctx,
+            &matmul_tiled_2d,
+            "matmul_tiled_2d",
+            case,
+            try tile2DLaunch(case),
         );
     }
 }
@@ -238,5 +260,35 @@ fn tiledLaunch(case: MatmulCase) !MatmulLaunch {
         .grid_y = try zt.utils.cdiv(case.m, TILED_MATMUL_TILE),
         .block_x = TILED_MATMUL_TILE,
         .block_y = TILED_MATMUL_TILE,
+    };
+}
+
+fn tileTMLaunch(case: MatmulCase) !MatmulLaunch {
+    // matmul_coalsce maps x -> col and y -> row, so warp lanes advance across
+    // columns for coalesced B loads and C stores.
+    const BM = 64; // block M dim
+    const BN = 16; // block N dim
+    const TM = 4; // number of elements in a thread
+
+    return .{
+        .grid_x = try zt.utils.cdiv(case.n, BN),
+        .grid_y = try zt.utils.cdiv(case.m, BM),
+        .block_x = BN,
+        .block_y = BM / TM,
+    };
+}
+
+fn tile2DLaunch(case: MatmulCase) !MatmulLaunch {
+    // matmul_coalsce maps x -> col and y -> row, so warp lanes advance across
+    // columns for coalesced B loads and C stores.
+    const BM = 64; // block M dim
+    const BN = 16; // block N dim
+    const TM = 4; // number of elements in a thread
+    const TN = 4; // number of elements in a thread
+    return .{
+        .grid_x = try zt.utils.cdiv(case.n, BN),
+        .grid_y = try zt.utils.cdiv(case.m, BM),
+        .block_x = BN / TN,
+        .block_y = BM / TM,
     };
 }
