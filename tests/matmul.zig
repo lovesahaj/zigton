@@ -60,7 +60,7 @@ test "matmul kernel" {
         try expectMatmul(&ctx, &matmul_coalsce, "matmul_coalsce", case, try coalsceLaunch(case));
         try expectMatmul(&ctx, &matmul_tile, "matmul_tiled", case, try tileLaunch(case));
         try expectMatmul(&ctx, &matmul_tiled_tm, "matmul_tiled_tm", case, try tileTMLaunch(case));
-        try expectMatmul(&ctx, &matmul_tiled_2d, "matmul_tiled_2d", case, try tileLaunch(case));
+        try expectMatmul(&ctx, &matmul_tiled_2d, "matmul_tiled_2d", case, try tile2DLaunch(case));
     }
 }
 

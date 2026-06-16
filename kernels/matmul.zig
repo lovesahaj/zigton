@@ -218,8 +218,8 @@ pub export fn matmul_tiled_2d(
     N: u32,
 ) callconv(.kernel) void {
     const BM = 64;
-    const BN = 16;
-    const BK = 16;
+    const BN = 64;
+    const BK = 32;
     const TM = 4;
     const TN = 4;
 
