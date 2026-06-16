@@ -1,6 +1,6 @@
 const Kernel = @import("kernel.zig").Kernel;
 const kernelArgs = @import("args.zig").kernelArgs;
-const Module = @import("Module.zig").Module;
+const Module = @import("module.zig").Module;
 const Context = @import("context.zig").Context;
 const DeviceBuffer = @import("buffer.zig").DeviceBuffer;
 const cdiv = @import("utils.zig").cdiv;
@@ -14,7 +14,7 @@ pub const Matmul = struct {
         };
     }
 
-    pub fn F32(
+    pub fn runF32(
         self: @This(),
         ctx: *Context,
         a: DeviceBuffer(f32),

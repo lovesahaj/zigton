@@ -47,6 +47,7 @@ test "matmul kernel" {
     const matmul_tile: zt.Kernel = try module.kernel("matmul_tiled");
     const matmul_tiled_tm: zt.Kernel = try module.kernel("matmul_tiled_tm");
     const matmul_tiled_2d: zt.Kernel = try module.kernel("matmul_tiled_2d");
+    const matmul_wrapper = try zt.Matmul.init(module);
 
     const cases = [_]MatmulCase{
         .{ .m = 4, .k = 5, .n = 3 },
@@ -61,7 +62,57 @@ test "matmul kernel" {
         try expectMatmul(&ctx, &matmul_tile, "matmul_tiled", case, try tileLaunch(case));
         try expectMatmul(&ctx, &matmul_tiled_tm, "matmul_tiled_tm", case, try tileTMLaunch(case));
         try expectMatmul(&ctx, &matmul_tiled_2d, "matmul_tiled_2d", case, try tile2DLaunch(case));
+        try expectMatmulWrapper(&ctx, matmul_wrapper, case);
     }
+}
+
+fn expectMatmulWrapper(
+    ctx: *zt.Context,
+    matmul_wrapper: zt.Matmul,
+    case: MatmulCase,
+) !void {
+    const gpa = std.testing.allocator;
+
+    const A = try gpa.alloc(f32, case.m * case.k);
+    defer gpa.free(A);
+    const B = try gpa.alloc(f32, case.k * case.n);
+    defer gpa.free(B);
+    const C = try gpa.alloc(f32, case.m * case.n);
+    defer gpa.free(C);
+
+    fillInputs(A, B);
+    @memset(C, 0.0);
+
+    var dA = try zt.DeviceBuffer(f32).init(A.len);
+    defer dA.deinit();
+
+    var dB = try zt.DeviceBuffer(f32).init(B.len);
+    defer dB.deinit();
+
+    var dC = try zt.DeviceBuffer(f32).init(C.len);
+    defer dC.deinit();
+
+    try dA.copyFromHost(A);
+    try dB.copyFromHost(B);
+    try dC.copyFromHost(C);
+
+    try matmul_wrapper.runF32(
+        ctx,
+        dA,
+        dB,
+        dC,
+        @intCast(case.m),
+        @intCast(case.k),
+        @intCast(case.n),
+    );
+
+    try dC.copyToHost(C);
+
+    const expected = try gpa.alloc(f32, C.len);
+    defer gpa.free(expected);
+
+    matmulCPU(A, B, expected, case.m, case.k, case.n);
+    try expectClose("zt.Matmul.runF32", case, expected, C);
 }
 
 fn expectMatmul(
@@ -80,13 +131,7 @@ fn expectMatmul(
     const C = try gpa.alloc(f32, case.m * case.n);
     defer gpa.free(C);
 
-    for (A, 0..) |*v, i| {
-        v.* = @as(f32, @floatFromInt((i % 11) + 1));
-    }
-
-    for (B, 0..) |*v, i| {
-        v.* = @as(f32, @floatFromInt((i % 7) + 1));
-    }
+    fillInputs(A, B);
 
     @memset(C, 0.0);
 
@@ -128,16 +173,35 @@ fn expectMatmul(
 
     matmulCPU(A, B, expected, case.m, case.k, case.n);
 
-    for (0..C.len) |i| {
+    try expectClose(name, case, expected, C);
+}
+
+fn fillInputs(A: []f32, B: []f32) void {
+    for (A, 0..) |*v, i| {
+        v.* = @as(f32, @floatFromInt((i % 11) + 1));
+    }
+
+    for (B, 0..) |*v, i| {
+        v.* = @as(f32, @floatFromInt((i % 7) + 1));
+    }
+}
+
+fn expectClose(
+    name: []const u8,
+    case: MatmulCase,
+    expected: []const f32,
+    actual: []const f32,
+) !void {
+    for (0..actual.len) |i| {
         const ok = if (expected[i] == 0.0)
-            std.math.approxEqAbs(f32, expected[i], C[i], 1e-4)
+            std.math.approxEqAbs(f32, expected[i], actual[i], 1e-4)
         else
-            std.math.approxEqRel(f32, expected[i], C[i], 1e-4);
+            std.math.approxEqRel(f32, expected[i], actual[i], 1e-4);
 
         if (!ok) {
             std.debug.print(
                 "{s} mismatch case={d}x{d}x{d} index={d} expected={d} actual={d}\n",
-                .{ name, case.m, case.k, case.n, i, expected[i], C[i] },
+                .{ name, case.m, case.k, case.n, i, expected[i], actual[i] },
             );
             return error.MatmulMismatch;
         }
